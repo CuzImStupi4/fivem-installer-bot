@@ -1,9 +1,18 @@
-# Discord Bot for FiveM Server Setup
+# Discord bot for Automaticly installing FiveM Server
 
-This Discord bot automates the process of setting up a FiveM server. It allows you to quickly deploy a new FiveM server with minimal input, directly through Discord commands.
+## Features
 
-## What It Does
-- **Automatic FiveM server setup**: Installs and configures a new FiveM server automatically.
-- **Streamlined server deployment**: Simplifies the process of getting a FiveM server up and running with just one command in Discord.
+- Automatically installs txAdmin & Database
+- Installs required dependencies
+- Configures server settings for you
+- Easy setup via Discord with minimal user input
 
-This bot is designed to save time and effort, enabling server owners to easily launch a FiveM server without having to manually handle the setup.
+
+## Thanks
+- Special thanks to [Twe3x](github.com/twe3x) for creating an optimized FiveM installer script installer/
+
+## Our Vision
+- Making an Website to also install it there!
+
+
+## Preview
