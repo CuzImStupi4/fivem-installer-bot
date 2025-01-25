@@ -99,7 +99,7 @@ client.on('interactionCreate', async interaction => {
                     .setStyle(ButtonStyle.Danger)
             );
         try {
-            await interaction.editReply({ content: `Do you want to install MySQL?`, components: [mysqlRow] });
+            await interaction.editReply({ content: `Do you want to install MySQL?\n⚠︎   This will then Fully **delete** the old database **if one is installed**!   ⚠︎\n\n⚠︎   **__We are not Responsible if it deleted something!__**   ⚠︎`, components: [mysqlRow] });
 
             const filter = i => i.user.id === interaction.user.id;
             const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
