@@ -176,7 +176,8 @@ client.on('interactionCreate', async interaction => {
             .setDescription(
                 `It seems the provided connection details are incorrect:\n\n` +
                 `**Error:** ${err.message || 'Unknown error'}\n\n` +
-                `Please check your inputs and execute the command again.`
+                `Please check your inputs and execute the command again.\n\n` +
+                `Try aigan or open an ticket! <#1332687426489024532>`
             )
             .setFields(
                 { name: 'IP Address', value: ip, inline: true },
