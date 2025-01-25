@@ -184,7 +184,7 @@ client.on('interactionCreate', async interaction => {
                             const publicEmbed = new EmbedBuilder()
                                 .setColor('#00FF00')
                                 .setTitle('Server Installation')
-                                .setDescription(`A new FiveM server has been successfully installed by <@${interaction.user.id}>!)`)
+                                .setDescription(`A new FiveM server has been successfully installed by <@${interaction.user.id}>!`)
                                 .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
                                 .setTimestamp();
 
@@ -288,7 +288,7 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
 
-            const adminerrorEmbed = new EmbedBuilder()
+        const adminerrorEmbed = new EmbedBuilder()
             .setColor('#FF0000')
             .setTitle('Connection Error')
             .setDescription(
