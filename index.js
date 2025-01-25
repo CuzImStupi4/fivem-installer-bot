@@ -114,14 +114,14 @@ client.on('interactionCreate', async interaction => {
 
                             await page.setContent(`
                                 <html>
-                                    <body style="background: black; color: white; font-family: monospace; padding: 20px;">
-                                        <h1>Server Installation Output</h1>
-                                        <pre>${output || "No output"}</pre>
-                                        <footer style="margin-top: 20px; text-align: center; font-size: 14px;">
-                                            Made by Lucas & CuzImStupi4 with ❤️
-                                        </footer>
-                                    </body>
-                                </html>
+                                <body style="background: #141313; color: white; font-family: monospace; padding: 20px;">
+                                    <h1 style="text-align: center;">Server Installation Output</h1>
+                                    <pre>${output || "No output"}</pre>
+                                    <footer style="margin-top: 20px; text-align: center; font-size: 14px;">
+                                        Made by Lucas & CuzImStupi4 with ❤️
+                                    </footer>
+                                </body>
+                         </html>
                             `);
 
                             await page.screenshot({ path: screenshotPath });
