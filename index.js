@@ -15,9 +15,10 @@ const accessedRole = process.env.ACCESSED_ROLE;
 const announcementChannelId = process.env.ANNOUNCEMENT_CHANNEL_ID;
 const successChannelId = process.env.SUCCESS_CHANNEL_ID;
 const errorChannelId = process.env.ERROR_CHANNEL_ID;
+const helpChannelId = process.env.HELP_CHANNEL_ID;
 
-if (!token || !clientid || !accessedRole || !announcementChannelId || !successChannelId || !errorChannelId) {
-    throw new Error("Missing DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, ACCESSED_ROLE, ANNOUNCEMENT_CHANNEL_ID, SUCCESS_CHANNEL_ID, or ERROR_CHANNEL_ID in .env file");
+if (!token || !clientid || !accessedRole || !announcementChannelId || !successChannelId || !errorChannelId || !helpChannelId) {
+    throw new Error("Missing DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, ACCESSED_ROLE, ANNOUNCEMENT_CHANNEL_ID, SUCCESS_CHANNEL_ID, or ERROR_CHANNEL_ID or HELP_CHANNELID in .env file");
 }
 
 const client = new Client({
@@ -275,8 +276,8 @@ client.on('interactionCreate', async interaction => {
                 `It seems the provided connection details are incorrect:\n\n` +
                 `**Error:** ${err.message || 'Unknown error'}\n\n` +
                 `Please check your inputs!\n\n` +
-                `Try again or open a ticket! <#1332665928521093252>\n` +
-                `If you open an ticket send the ID **__${customId}__** too!`
+                `Try again or open a ticket! <#${helpChannelId}>\n` +
+                `If you ask in the Help Channel, kindly send the ID **__${customId}__** too!`
             )
             .setFields(
                 { name: 'IP Address', value: `||${ip}||`, inline: true },
