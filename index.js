@@ -10,9 +10,10 @@ const path = require('path');
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const clientid = process.env.DISCORD_CLIENT_ID;
+const accessedRole = process.env.ACCESSED_ROLE;
 
-if (!token || !clientid) {
-    throw new Error("Missing DISCORD_BOT_TOKEN or DISCORD_CLIENT_ID in .env file");
+if (!token || !clientid || !accessedRole) {
+    throw new Error("Missing DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, or ACCESSED_ROLE in .env file");
 }
 
 const client = new Client({
@@ -64,6 +65,12 @@ client.on('ready', () => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand() || interaction.commandName !== "install") return;
 
+    if (!interaction.member.roles.cache.has(accessedRole)) {
+        return interaction.reply({ content: "You do not have permission to use this command.", flags: 64 });
+    }
+
+    await interaction.deferReply({ flags: 64 });
+
     const ip = interaction.options.getString("ip");
     const port = interaction.options.getString("port");
     const user = interaction.options.getString("user");
@@ -85,7 +92,7 @@ client.on('interactionCreate', async interaction => {
                     .setStyle(ButtonStyle.Danger)
             );
         try {
-            await interaction.reply({ content: "Do you want to install MySQL?", ephemeral: true, components: [mysqlRow] });
+            await interaction.editReply({ content: "Do you want to install MySQL?", components: [mysqlRow] });
 
             const filter = i => i.user.id === interaction.user.id;
             const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
@@ -97,7 +104,7 @@ client.on('interactionCreate', async interaction => {
                 try {
                     ssh.exec(command, (err, stream) => {
                         if (err) {
-                            return interaction.followUp({ content: `SSH Error: ${err.message}`, ephemeral: true });
+                            return interaction.followUp({ content: `SSH Error: ${err.message}`, flags: 64 });
                         }
 
                         stream.on('data', data => output += data.toString());
@@ -143,7 +150,7 @@ client.on('interactionCreate', async interaction => {
                                     { attachment: screenshotPath, name: "output.png" },
                                     { attachment: outputFilePath, name: "output.txt" }
                                 ],
-                                ephemeral: true
+                                flags: 64
                             });
 
                             fs.unlinkSync(outputFilePath);
@@ -152,7 +159,7 @@ client.on('interactionCreate', async interaction => {
                     });
                 } catch (err) {
                     console.error("Error executing command:", err);
-                    await interaction.followUp({ content: `Execution failed: ${err.message}`, ephemeral: true });
+                    await interaction.followUp({ content: `Execution failed: ${err.message}`, flags: 64 });
                 }
             });
             collector.on('end', async collected => {
@@ -164,7 +171,7 @@ client.on('interactionCreate', async interaction => {
         } catch (error) {
             console.error("Error during interaction:", error);
             if (!interaction.replied) {
-                await interaction.reply({ content: "An error occurred during the process.", ephemeral: true });
+                await interaction.editReply({ content: "An error occurred during the process.", flags: 64 });
             }
         }
     }).on('error', async (err) => {
@@ -177,7 +184,7 @@ client.on('interactionCreate', async interaction => {
                 `It seems the provided connection details are incorrect:\n\n` +
                 `**Error:** ${err.message || 'Unknown error'}\n\n` +
                 `Please check your inputs and execute the command again.\n\n` +
-                `Try aigan or open an ticket! <#1332687426489024532>`
+                `Try again or open a ticket! <#1332687426489024532>`
             )
             .setFields(
                 { name: 'IP Address', value: ip, inline: true },
@@ -188,10 +195,16 @@ client.on('interactionCreate', async interaction => {
             .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
         if (!interaction.replied) {
-            await interaction.reply({
+            await interaction.editReply({
                 content: 'An error occurred:',
                 embeds: [errorEmbed],
-                ephemeral: true
+                flags: 64
+            });
+        } else {
+            await interaction.followUp({
+                content: 'An error occurred:',
+                embeds: [errorEmbed],
+                flags: 64
             });
         }
     }).connect({ host: ip, port: parseInt(port), username: user, password: password });
