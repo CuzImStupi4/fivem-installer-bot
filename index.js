@@ -11,9 +11,10 @@ const path = require('path');
 const token = process.env.DISCORD_BOT_TOKEN;
 const clientid = process.env.DISCORD_CLIENT_ID;
 const accessedRole = process.env.ACCESSED_ROLE;
+const announcementChannelId = process.env.ANNOUNCEMENT_CHANNEL_ID;
 
-if (!token || !clientid || !accessedRole) {
-    throw new Error("Missing DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, or ACCESSED_ROLE in .env file");
+if (!token || !clientid || !accessedRole || !announcementChannelId) {
+    throw new Error("Missing DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, ACCESSED_ROLE, or ANNOUNCEMENT_CHANNEL_ID in .env file");
 }
 
 const client = new Client({
@@ -155,6 +156,18 @@ client.on('interactionCreate', async interaction => {
 
                             fs.unlinkSync(outputFilePath);
                             fs.unlinkSync(screenshotPath);
+
+                            const publicEmbed = new EmbedBuilder()
+                                .setColor('#00FF00')
+                                .setTitle('Server Installation')
+                                .setDescription(`A new FiveM server has been successfully installed by <@${interaction.user.id}>!`)
+                                .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                                .setTimestamp();
+
+                            const announcementChannel = client.channels.cache.get(announcementChannelId);
+                            if (announcementChannel) {
+                                announcementChannel.send({ embeds: [publicEmbed] });
+                            }
                         });
                     });
                 } catch (err) {
