@@ -184,6 +184,7 @@ client.on('interactionCreate', async interaction => {
                 { name: 'Username', value: user, inline: true },
                 { name: 'Password', value: `||${password}||`, inline: true }
             )
+            .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
         if (!interaction.replied) {
             await interaction.reply({
