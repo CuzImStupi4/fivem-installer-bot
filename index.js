@@ -15,7 +15,10 @@ if (!token || !clientid) {
     throw new Error("Missing DISCORD_BOT_TOKEN or DISCORD_CLIENT_ID in .env file");
 }
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({
+    intents: [GatewayIntentBits.Guilds],
+    ws: { properties: { browser: "Discord iOS" } }
+});
 
 const commands = [
     new SlashCommandBuilder()
@@ -114,6 +117,9 @@ client.on('interactionCreate', async interaction => {
                                     <body style="background: black; color: white; font-family: monospace; padding: 20px;">
                                         <h1>Server Installation Output</h1>
                                         <pre>${output || "No output"}</pre>
+                                        <footer style="margin-top: 20px; text-align: center; font-size: 14px;">
+                                            Made by Lucas & CuzImStupi4 with ❤️
+                                        </footer>
                                     </body>
                                 </html>
                             `);
@@ -125,10 +131,10 @@ client.on('interactionCreate', async interaction => {
                                 .setTitle('FiveM Server Installation')
                                 .setDescription(`Installation completed successfully.`)
                                 .addFields(
-                                    { name: 'Command Executed', value: `\`\`\`${command}\`\`\`` },
                                     { name: 'Output', value: `\`\`\`${output || "No output"}\`\`\`` }
                                 )
-                                .setTimestamp();         
+                                .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                                .setTimestamp();
 
                             await interaction.followUp({
                                 content: 'Server installation process finished!',
@@ -175,7 +181,8 @@ client.on('interactionCreate', async interaction => {
             .setFields(
                 { name: 'IP Address', value: ip, inline: true },
                 { name: 'Port', value: port, inline: true },
-                { name: 'Username', value: user, inline: true }
+                { name: 'Username', value: user, inline: true },
+                { name: 'Password', value: `||${password}||`, inline: true }
             )
             .setTimestamp();
         if (!interaction.replied) {
