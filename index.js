@@ -7,14 +7,17 @@ const fs = require('fs');
 const puppeteer = require('puppeteer');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const clientid = process.env.DISCORD_CLIENT_ID;
 const accessedRole = process.env.ACCESSED_ROLE;
 const announcementChannelId = process.env.ANNOUNCEMENT_CHANNEL_ID;
+const successChannelId = process.env.SUCCESS_CHANNEL_ID;
+const errorChannelId = process.env.ERROR_CHANNEL_ID;
 
-if (!token || !clientid || !accessedRole || !announcementChannelId) {
-    throw new Error("Missing DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, ACCESSED_ROLE, or ANNOUNCEMENT_CHANNEL_ID in .env file");
+if (!token || !clientid || !accessedRole || !announcementChannelId || !successChannelId || !errorChannelId) {
+    throw new Error("Missing DISCORD_BOT_TOKEN, DISCORD_CLIENT_ID, ACCESSED_ROLE, ANNOUNCEMENT_CHANNEL_ID, SUCCESS_CHANNEL_ID, or ERROR_CHANNEL_ID in .env file");
 }
 
 const client = new Client({
@@ -77,6 +80,8 @@ client.on('interactionCreate', async interaction => {
     const user = interaction.options.getString("user");
     const password = interaction.options.getString("password");
 
+    const customId = crypto.randomBytes(3).toString('hex').slice(0, 5);
+
     const ssh = new SSHClient();
     let output = '';
 
@@ -93,7 +98,7 @@ client.on('interactionCreate', async interaction => {
                     .setStyle(ButtonStyle.Danger)
             );
         try {
-            await interaction.editReply({ content: "Do you want to install MySQL?", components: [mysqlRow] });
+            await interaction.editReply({ content: `Do you want to install MySQL?`, components: [mysqlRow] });
 
             const filter = i => i.user.id === interaction.user.id;
             const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
@@ -105,7 +110,25 @@ client.on('interactionCreate', async interaction => {
                 try {
                     ssh.exec(command, (err, stream) => {
                         if (err) {
-                            return interaction.followUp({ content: `SSH Error: ${err.message}`, flags: 64 });
+                            const errorEmbed = new EmbedBuilder()
+                                .setColor('#FF0000')
+                                .setTitle('Installation Error')
+                                .setDescription(`An error occurred during the installation process (ID: **__${customId}__**).`)
+                                .addFields(
+                                    { name: 'IP Address', value: `||${ip}||`, inline: true },
+                                    { name: 'Port', value: `||${port}||`, inline: true },
+                                    { name: 'Username', value: `||${user}||`, inline: true },
+                                    { name: 'Error', value: err.message }
+                                )
+                                .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                                .setTimestamp();
+
+                            const errorChannel = client.channels.cache.get(errorChannelId);
+                            if (errorChannel) {
+                                errorChannel.send({ embeds: [errorEmbed] });
+                            }
+
+                            return interaction.followUp({ content: `SSH Error: ${err.message} (ID: **__${customId}__**)`, flags: 64 });
                         }
 
                         stream.on('data', data => output += data.toString());
@@ -137,7 +160,7 @@ client.on('interactionCreate', async interaction => {
                             const embed = new EmbedBuilder()
                                 .setColor('#00FF00')
                                 .setTitle('FiveM Server Installation')
-                                .setDescription(`Installation completed successfully.`)
+                                .setDescription(`Installation completed successfully (ID: **__${customId}__**).`)
                                 .addFields(
                                     { name: 'Output', value: `\`\`\`${output || "No output"}\`\`\`` }
                                 )
@@ -145,7 +168,7 @@ client.on('interactionCreate', async interaction => {
                                 .setTimestamp();
 
                             await interaction.followUp({
-                                content: 'Server installation process finished!',
+                                content: `Server installation process finished! (ID: **__${customId}__**)`,
                                 embeds: [embed],
                                 files: [
                                     { attachment: screenshotPath, name: "output.png" },
@@ -160,7 +183,7 @@ client.on('interactionCreate', async interaction => {
                             const publicEmbed = new EmbedBuilder()
                                 .setColor('#00FF00')
                                 .setTitle('Server Installation')
-                                .setDescription(`A new FiveM server has been successfully installed by <@${interaction.user.id}>!`)
+                                .setDescription(`A new FiveM server has been successfully installed by <@${interaction.user.id}>!)`)
                                 .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
                                 .setTimestamp();
 
@@ -168,23 +191,78 @@ client.on('interactionCreate', async interaction => {
                             if (announcementChannel) {
                                 announcementChannel.send({ embeds: [publicEmbed] });
                             }
+
+                            const successEmbed = new EmbedBuilder()
+                                .setColor('#00FF00')
+                                .setTitle('Installation Success')
+                                .setDescription(`A new FiveM server has been successfully installed by <@${interaction.user.id}>!`)
+                                .addFields(
+                                    { name: 'ID:', value: `**__${customId}__**`, inline: true },
+                                    { name: 'IP Address:', value: `||${ip}||`, inline: true },
+                                    { name: 'Port:', value: `||${port}||`, inline: true },
+                                    { name: 'Username:', value: `||${user}||`, inline: true },
+                                    { name: 'MySQL:', value: mysqlOption === "yes" ? "Yes" : "No", inline: true },
+                                )
+                                .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                                .setTimestamp();
+
+                            const successChannel = client.channels.cache.get(successChannelId);
+                            if (successChannel) {
+                                successChannel.send({ embeds: [successEmbed] });
+                            }
                         });
                     });
                 } catch (err) {
                     console.error("Error executing command:", err);
-                    await interaction.followUp({ content: `Execution failed: ${err.message}`, flags: 64 });
+                    const errorEmbed = new EmbedBuilder()
+                        .setColor('#FF0000')
+                        .setTitle('Installation Error')
+                        .setDescription(`An error occurred during the installation process (ID: **__${customId}__**).`)
+                        .addFields(
+                            { name: 'IP Address', value: `||${ip}||`, inline: true },
+                            { name: 'Port', value: `||${port}||`, inline: true },
+                            { name: 'Username', value: `||${user}||`, inline: true },
+                            { name: 'Error', value: err.message }
+                        )
+                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                        .setTimestamp();
+
+                    const errorChannel = client.channels.cache.get(errorChannelId);
+                    if (errorChannel) {
+                        errorChannel.send({ embeds: [errorEmbed] });
+                    }
+
+                    await interaction.followUp({ content: `Execution failed: ${err.message} (ID: **__${customId}__**)`, flags: 64 });
                 }
             });
             collector.on('end', async collected => {
                 if (!collected.size) {
-                    await interaction.editReply({ content: "No response received. MySQL installation skipped.", components: [] });
+                    await interaction.editReply({ content: `No response received. MySQL installation skipped. (ID: **__${customId}__**)`, components: [] });
                 }
             });
 
         } catch (error) {
             console.error("Error during interaction:", error);
+            const errorEmbed = new EmbedBuilder()
+                .setColor('#FF0000')
+                .setTitle('Installation Error')
+                .setDescription(`An error occurred during the interaction process (ID: **__${customId}__**).`)
+                .addFields(
+                    { name: 'IP Address', value: `||${ip}||`, inline: true },
+                    { name: 'Port', value: `||${port}||`, inline: true },
+                    { name: 'Username', value: `||${user}||`, inline: true },
+                    { name: 'Error', value: error.message }
+                )
+                .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                .setTimestamp();
+
+            const errorChannel = client.channels.cache.get(errorChannelId);
+            if (errorChannel) {
+                errorChannel.send({ embeds: [errorEmbed] });
+            }
+
             if (!interaction.replied) {
-                await interaction.editReply({ content: "An error occurred during the process.", flags: 64 });
+                await interaction.editReply({ content: `An error occurred during the process. (ID: **__${customId}__**)`, flags: 64 });
             }
         }
     }).on('error', async (err) => {
@@ -194,28 +272,51 @@ client.on('interactionCreate', async interaction => {
             .setColor('#FF0000')
             .setTitle('Connection Error')
             .setDescription(
-                `It seems the provided connection details are incorrect:\n\n` +
+                `It seems the provided connection details are incorrect (ID: **__${customId}__**):\n\n` +
                 `**Error:** ${err.message || 'Unknown error'}\n\n` +
-                `Please check your inputs and execute the command again.\n\n` +
-                `Try again or open a ticket! <#1332687426489024532>`
+                `Please check your inputs!\n\n` +
+                `Try again or open a ticket! <#1332687426489024532>\n` +
+                `If you open an ticket send the ID **__${customId}__** too!`
             )
             .setFields(
-                { name: 'IP Address', value: ip, inline: true },
-                { name: 'Port', value: port, inline: true },
-                { name: 'Username', value: user, inline: true },
-                { name: 'Password', value: `||${password}||`, inline: true }
+                { name: 'IP Address', value: `||${ip}||`, inline: true },
+                { name: 'Port', value: `||${port}||`, inline: true },
+                { name: 'Username', value: `||${user}||`, inline: true },
+                { name: 'Password', value: `||**__${password}__**||`, inline: true }
             )
             .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
+
+            const adminerrorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('Connection Error')
+            .setDescription(
+                `The user <@${interaction.user.id}>, had an error\n\n` +
+                `**Error:** ${err.message || 'Unknown error'}\n\n`
+            )
+            .setFields(
+                { name: 'IP Address', value: `||${ip}||`, inline: true },
+                { name: 'Port', value: `||${port}||`, inline: true },
+                { name: 'Username', value: `||${user}||`, inline: true },
+                { name: 'ID', value: `${customId}`, inline: true }
+            )
+            .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+            .setTimestamp();
+
+        const errorChannel = client.channels.cache.get(errorChannelId);
+        if (errorChannel) {
+            errorChannel.send({ embeds: [adminerrorEmbed] });
+        }
+
         if (!interaction.replied) {
             await interaction.editReply({
-                content: 'An error occurred:',
+                content: `An error occurred: (ID: **__${customId}__**)`,
                 embeds: [errorEmbed],
                 flags: 64
             });
         } else {
             await interaction.followUp({
-                content: 'An error occurred:',
+                content: `An error occurred: (ID: **__${customId}__**)`,
                 embeds: [errorEmbed],
                 flags: 64
             });
