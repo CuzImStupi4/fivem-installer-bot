@@ -5,9 +5,15 @@ const { Client: SSHClient } = require('ssh2');
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
 const puppeteer = require('puppeteer');
+const os = require('os');
+const path = require('path');
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const clientid = process.env.DISCORD_CLIENT_ID;
+
+if (!token || !clientid) {
+    throw new Error("Missing DISCORD_BOT_TOKEN or DISCORD_CLIENT_ID in .env file");
+}
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
@@ -38,14 +44,13 @@ const commands = [
 ];
 
 const rest = new REST({ version: '10' }).setToken(token);
-
 (async () => {
     try {
         console.log("Started refreshing application (/) commands");
         await rest.put(Routes.applicationCommands(clientid), { body: commands });
         console.log("Successfully reloaded application (/) commands");
     } catch (error) {
-        console.error(error);
+        console.error("Error refreshing commands:", error);
     }
 })();
 
@@ -60,98 +65,127 @@ client.on('interactionCreate', async interaction => {
     const port = interaction.options.getString("port");
     const user = interaction.options.getString("user");
     const password = interaction.options.getString("password");
-    let mysqlOption;
 
-    const mysqlRow = new ActionRowBuilder()
-        .addComponents(
-            new ButtonBuilder()
-                .setCustomId('mysql_yes')
-                .setLabel('Yes')
-                .setStyle(ButtonStyle.Success),
-            new ButtonBuilder()
-                .setCustomId('mysql_no')
-                .setLabel('No')
-                .setStyle(ButtonStyle.Danger)
-        );
+    const ssh = new SSHClient();
+    let output = '';
 
-    try {
-        await interaction.reply({ content: "Do you want to install MySQL?", ephemeral: true, components: [mysqlRow] });
+    ssh.on('ready', async () => {
+        const mysqlRow = new ActionRowBuilder()
+            .addComponents(
+                new ButtonBuilder()
+                    .setCustomId('mysql_yes')
+                    .setLabel('Install MySQL')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId('mysql_no')
+                    .setLabel('Skip MySQL')
+                    .setStyle(ButtonStyle.Danger)
+            );
+        try {
+            await interaction.reply({ content: "Do you want to install MySQL?", ephemeral: true, components: [mysqlRow] });
 
-        const filter = i => i.user.id === interaction.user.id;
-        const collector = interaction.channel.createMessageComponentCollector({ filter });
+            const filter = i => i.user.id === interaction.user.id;
+            const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
+            collector.on('collect', async i => {
+                const mysqlOption = i.customId === 'mysql_yes' ? 'yes' : 'no';
+                await i.update({ content: `MySQL installation selected: ${mysqlOption}`, components: [] });
 
-        collector.on('collect', async i => {
-            mysqlOption = i.customId === 'mysql_yes' ? 'yes' : 'no';
-            await i.update({ content: `MySQL option selected: ${mysqlOption}`, components: [] });
+                const command = mysqlOption === "yes" ? "echo Installing FiveM with MySQL..." : "echo Installing FiveM without MySQL...";
+                try {
+                    ssh.exec(command, (err, stream) => {
+                        if (err) {
+                            return interaction.followUp({ content: `SSH Error: ${err.message}`, ephemeral: true });
+                        }
 
-            const ssh = new SSHClient();
-            let output = '';
+                        stream.on('data', data => output += data.toString());
+                        stream.on('close', async () => {
+                            ssh.end();
+                            const tempDir = os.tmpdir();
+                            const outputFilePath = path.join(tempDir, "output.txt");
+                            const screenshotPath = path.join(tempDir, "output.png");
 
-            ssh.on('ready', () => {
-                // TODO: Add the actual command to install the FiveM server
-                const mysqlCommand = mysqlOption === "yes" ? "echo Hello with mysql!" : "echo Hello!";
-                ssh.exec(mysqlCommand, (err, stream) => {
-                    if (err) {
-                        return interaction.followUp({ content: `Error: ${err.message}`, ephemeral: true });
-                    }
+                            fs.writeFileSync(outputFilePath, output);
 
-                    stream.on('data', data => output += data.toString());
-                    stream.on('close', async () => {
-                        ssh.end();
-                        fs.writeFileSync("output.txt", output);
+                            const browser = await puppeteer.launch({ headless: true });
+                            const page = await browser.newPage();
 
-                        const browser = await puppeteer.launch();
-                        const page = await browser.newPage();
+                            await page.setContent(`
+                                <html>
+                                    <body style="background: black; color: white; font-family: monospace; padding: 20px;">
+                                        <h1>Server Installation Output</h1>
+                                        <pre>${output || "No output"}</pre>
+                                    </body>
+                                </html>
+                            `);
 
-                        await page.setContent(`
-                            <html>
-                                <body style="background: black; color: white; font-family: monospace; padding: 20px;">
-                                    <h1>Output of the Command</h1>
-                                    <pre>${output || "No output"}</pre>
-                                </body>
-                            </html>
-                        `);
+                            await page.screenshot({ path: screenshotPath });
+                            await browser.close();
+                            const embed = new EmbedBuilder()
+                                .setColor('#00FF00')
+                                .setTitle('FiveM Server Installation')
+                                .setDescription(`Installation completed successfully.`)
+                                .addFields(
+                                    { name: 'Command Executed', value: `\`\`\`${command}\`\`\`` },
+                                    { name: 'Output', value: `\`\`\`${output || "No output"}\`\`\`` }
+                                )
+                                .setTimestamp();         
 
-                        // TODO: Send it as a DM and don't send it in the public chat, also send it with reply as "only you can see it"
-                        const screenshotPath = "output.png";
-                        await page.screenshot({ path: screenshotPath });
-                        await browser.close();
+                            await interaction.followUp({
+                                content: 'Server installation process finished!',
+                                embeds: [embed],
+                                files: [
+                                    { attachment: screenshotPath, name: "output.png" },
+                                    { attachment: outputFilePath, name: "output.txt" }
+                                ],
+                                ephemeral: true
+                            });
 
-                        const embed = new EmbedBuilder()
-                            .setColor('#00FF00')
-                            .setTitle('Server Installation Completed')
-                            .setDescription(`Command executed successfully!`)
-                            .addFields(
-                                { name: 'Command Executed', value: `\`\`\`\n${mysqlCommand}\n\`\`\`` },
-                                { name: 'Output', value: `\`\`\`\n${output || "No output"}\n\`\`\`` }
-                            )
-                            .setTimestamp();
-
-                        await interaction.followUp({
-                            content: 'Server installation completed!',
-                            embeds: [embed],
-                            files: [
-                                { attachment: screenshotPath, name: "output.png" },
-                                { attachment: "output.txt", name: "output.txt" }
-                            ]
+                            fs.unlinkSync(outputFilePath);
+                            fs.unlinkSync(screenshotPath);
                         });
-
-                        fs.unlinkSync("output.txt");
-                        fs.unlinkSync(screenshotPath);
                     });
-                });
-            }).connect({ host: ip, port: port, username: user, password: password });
-        });
+                } catch (err) {
+                    console.error("Error executing command:", err);
+                    await interaction.followUp({ content: `Execution failed: ${err.message}`, ephemeral: true });
+                }
+            });
+            collector.on('end', async collected => {
+                if (!collected.size) {
+                    await interaction.editReply({ content: "No response received. MySQL installation skipped.", components: [] });
+                }
+            });
 
-        collector.on('end', async collected => {
-            if (!collected.size) {
-                await interaction.editReply({ content: "No MySQL option selected in time.", components: [] });
+        } catch (error) {
+            console.error("Error during interaction:", error);
+            if (!interaction.replied) {
+                await interaction.reply({ content: "An error occurred during the process.", ephemeral: true });
             }
-        });
-    } catch (error) {
-        console.error(error);
-        await interaction.followUp({ content: "There was an error executing the command", ephemeral: true });
-    }
+        }
+    }).on('error', async (err) => {
+        console.error("SSH Error:", err);
+
+        const errorEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('Connection Error')
+            .setDescription(
+                `It seems the provided connection details are incorrect:\n\n` +
+                `**Error:** ${err.message || 'Unknown error'}\n\n` +
+                `Please check your inputs and execute the command again.`
+            )
+            .setFields(
+                { name: 'IP Address', value: ip, inline: true },
+                { name: 'Port', value: port, inline: true },
+                { name: 'Username', value: user, inline: true }
+            )
+            .setTimestamp();
+        if (!interaction.replied) {
+            await interaction.reply({
+                content: 'An error occurred:',
+                embeds: [errorEmbed],
+                ephemeral: true
+            });
+        }
+    }).connect({ host: ip, port: parseInt(port), username: user, password: password });
 });
 
 client.login(token);
