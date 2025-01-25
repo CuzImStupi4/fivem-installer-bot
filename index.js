@@ -272,10 +272,10 @@ client.on('interactionCreate', async interaction => {
             .setColor('#FF0000')
             .setTitle('Connection Error')
             .setDescription(
-                `It seems the provided connection details are incorrect (ID: **__${customId}__**):\n\n` +
+                `It seems the provided connection details are incorrect:\n\n` +
                 `**Error:** ${err.message || 'Unknown error'}\n\n` +
                 `Please check your inputs!\n\n` +
-                `Try again or open a ticket! <#1332687426489024532>\n` +
+                `Try again or open a ticket! <#1332665928521093252>\n` +
                 `If you open an ticket send the ID **__${customId}__** too!`
             )
             .setFields(
@@ -298,7 +298,7 @@ client.on('interactionCreate', async interaction => {
                 { name: 'IP Address', value: `||${ip}||`, inline: true },
                 { name: 'Port', value: `||${port}||`, inline: true },
                 { name: 'Username', value: `||${user}||`, inline: true },
-                { name: 'ID', value: `${customId}`, inline: true }
+                { name: 'ID', value: `**__${customId}__**`, inline: true }
             )
             .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
