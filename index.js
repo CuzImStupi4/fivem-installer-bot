@@ -268,7 +268,10 @@ client.on('interactionCreate', async interaction => {
                                 return sendErrorEmbed(interaction, customId, lang, err, errorChannelId);
                             }
 
-                            stream.on('data', data => output += data.toString());
+                            stream.on('data', data => {
+                                output += data.toString();
+                                interaction.editReply({ content: `${lang.installationSuccess}\n\n${output}`, components: [] });
+                            });
                             stream.on('close', async () => {
                                 ssh.end();
                                 const tempDir = os.tmpdir();
