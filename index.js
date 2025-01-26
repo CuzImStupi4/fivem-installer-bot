@@ -1,6 +1,6 @@
 require("dotenv").config();
 const { Routes } = require('discord-api-types/v10');
-const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ActivityType } = require('discord.js');
 const { Client: SSHClient } = require('ssh2');
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
@@ -204,6 +204,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
+    client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
 });
 
 client.on('interactionCreate', async interaction => {
@@ -240,6 +241,8 @@ client.on('interactionCreate', async interaction => {
         const ssh = new SSHClient();
         let output = '';
 
+        client.user.setActivity(`Installing for ${interaction.user.tag}...`, { type: ActivityType.Playing });
+
         ssh.on('ready', async () => {
             const mysqlRow = new ActionRowBuilder()
                 .addComponents(
@@ -265,6 +268,7 @@ client.on('interactionCreate', async interaction => {
                     try {
                         ssh.exec(command, (err, stream) => {
                             if (err) {
+                                client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
                                 return sendErrorEmbed(interaction, customId, lang, err, errorChannelId);
                             }
 
@@ -371,19 +375,24 @@ client.on('interactionCreate', async interaction => {
                                     statistics.nonMysqlInstallations += 1;
                                 }
                                 saveStatistics();
+
+                                client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
                             });
                         });
                     } catch (err) {
+                        client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
                         return sendErrorEmbed(interaction, customId, lang, err, errorChannelId);
                     }
                 });
                 collector.on('end', async collected => {
                     if (!collected.size) {
                         await interaction.editReply({ content: `${lang.noResponse} (ID: **__${customId}__**)`, components: [] });
+                        client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
                     }
                 });
 
             } catch (error) {
+                client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
                 return sendErrorEmbed(interaction, customId, lang, error, errorChannelId);
             }
         }).on('error', async (err) => {
