@@ -45,10 +45,70 @@ function saveStatistics() {
     fs.writeFileSync(statsFilePath, JSON.stringify(statistics, null, 2));
 }
 
+const languages = {
+    en: {
+        installPrompt: "Do you want to install MySQL?\n⚠︎   This will then Fully **delete** the old database **if one is installed**!   ⚠︎\n\n⚠︎   **__We are not Responsible if it deleted something!__**   ⚠︎",
+        mysqlYes: "Install MySQL",
+        mysqlNo: "Skip MySQL",
+        mysqlSelected: "MySQL installation selected: ",
+        invalidIp: "Invalid IP address format.",
+        invalidPort: "Invalid port format. Port must be a number between 0 and 65535.",
+        noPermission: "You do not have permission to use this command.",
+        installationSuccess: "Installation completed successfully",
+        installationError: "An error occurred during the installation process",
+        connectionError: "Connection Error",
+        checkInputs: "Please check your inputs!",
+        tryAgain: "Try again or open a ticket!",
+        sendId: "If you ask in the Help Channel, kindly send the ID **__${customId}__** too!",
+        noResponse: "No response received. MySQL installation skipped.",
+        processFinished: "Server installation process finished!",
+        newServer: "A new FiveM server has been successfully installed by <@${interaction.user.id}>!",
+        statsTitle: "Installation Statistics",
+        totalInstallations: "Total Installations",
+        mysqlInstallations: "MySQL Installations",
+        nonMysqlInstallations: "Non-MySQL Installations",
+        errors: "Errors",
+        noErrors: "No errors recorded"
+    },
+    de: {
+        installPrompt: "Möchten Sie MySQL installieren?\n⚠︎   Dies wird dann die alte Datenbank vollständig **löschen**, **falls eine installiert ist**!   ⚠︎\n\n⚠︎   **__Wir sind nicht verantwortlich, wenn etwas gelöscht wurde!__**   ⚠︎",
+        mysqlYes: "MySQL installieren",
+        mysqlNo: "MySQL überspringen",
+        mysqlSelected: "MySQL-Installation ausgewählt: ",
+        invalidIp: "Ungültiges IP-Adressformat.",
+        invalidPort: "Ungültiges Portformat. Der Port muss eine Zahl zwischen 0 und 65535 sein.",
+        noPermission: "Sie haben keine Berechtigung, diesen Befehl zu verwenden.",
+        installationSuccess: "Installation erfolgreich abgeschlossen",
+        installationError: "Während des Installationsprozesses ist ein Fehler aufgetreten",
+        connectionError: "Verbindungsfehler",
+        checkInputs: "Bitte überprüfen Sie Ihre Eingaben!",
+        tryAgain: "Versuchen Sie es erneut oder öffnen Sie ein Ticket!",
+        sendId: "Wenn Sie im Hilfekanal fragen, senden Sie bitte auch die ID **__${customId}__**!",
+        noResponse: "Keine Antwort erhalten. MySQL-Installation übersprungen.",
+        processFinished: "Server-Installationsprozess abgeschlossen!",
+        newServer: "Ein neuer FiveM-Server wurde erfolgreich von <@${interaction.user.id}> installiert!",
+        statsTitle: "Installationsstatistiken",
+        totalInstallations: "Gesamtinstallationen",
+        mysqlInstallations: "MySQL-Installationen",
+        nonMysqlInstallations: "Nicht-MySQL-Installationen",
+        errors: "Fehler",
+        noErrors: "Keine Fehler aufgezeichnet"
+    }
+};
+
 const commands = [
     new SlashCommandBuilder()
         .setName("install")
         .setDescription("Installs a FiveM server")
+        .addStringOption(option =>
+            option.setName("language")
+                .setDescription("Select language")
+                .setRequired(true)
+                .addChoices(
+                    { name: 'English', value: 'en' },
+                    { name: 'Deutsch', value: 'de' }
+                )
+        )
         .addStringOption(option =>
             option.setName("ip")
                 .setDescription("The IP of the server")
@@ -93,8 +153,11 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
 
     if (interaction.commandName === "install") {
+        const language = interaction.options.getString("language");
+        const lang = languages[language] || languages.en;
+
         if (!interaction.member.roles.cache.has(accessedRole)) {
-            return interaction.reply({ content: "You do not have permission to use this command.", flags: 64 });
+            return interaction.reply({ content: lang.noPermission, flags: 64 });
         }
 
         await interaction.deferReply({ flags: 64 });
@@ -108,11 +171,11 @@ client.on('interactionCreate', async interaction => {
         const portRegex = /^([0-9]{1,5})$/;
 
         if (!ipRegex.test(ip)) {
-            return interaction.editReply({ content: "Invalid IP address format.", flags: 64 });
+            return interaction.editReply({ content: lang.invalidIp, flags: 64 });
         }
 
         if (!portRegex.test(port) || parseInt(port) > 65535) {
-            return interaction.editReply({ content: "Invalid port format. Port must be a number between 0 and 65535.", flags: 64 });
+            return interaction.editReply({ content: lang.invalidPort, flags: 64 });
         }
 
         const customId = crypto.randomBytes(3).toString('hex').slice(0, 5);
@@ -125,21 +188,21 @@ client.on('interactionCreate', async interaction => {
                 .addComponents(
                     new ButtonBuilder()
                         .setCustomId('mysql_yes')
-                        .setLabel('Install MySQL')
+                        .setLabel(lang.mysqlYes)
                         .setStyle(ButtonStyle.Success),
                     new ButtonBuilder()
                         .setCustomId('mysql_no')
-                        .setLabel('Skip MySQL')
+                        .setLabel(lang.mysqlNo)
                         .setStyle(ButtonStyle.Danger)
                 );
             try {
-                await interaction.editReply({ content: `Do you want to install MySQL?\n⚠︎   This will then Fully **delete** the old database **if one is installed**!   ⚠︎\n\n⚠︎   **__We are not Responsible if it deleted something!__**   ⚠︎`, components: [mysqlRow] });
+                await interaction.editReply({ content: lang.installPrompt, components: [mysqlRow] });
 
                 const filter = i => i.user.id === interaction.user.id;
                 const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
                 collector.on('collect', async i => {
                     const mysqlOption = i.customId === 'mysql_yes' ? 'yes' : 'no';
-                    await i.update({ content: `MySQL installation selected: ${mysqlOption}`, components: [] });
+                    await i.update({ content: `${lang.mysqlSelected} ${mysqlOption}`, components: [] });
 
                     const command = mysqlOption === "yes" ? "echo Installing FiveM with MySQL..." : "echo Installing FiveM without MySQL...";
                     try {
@@ -198,7 +261,7 @@ client.on('interactionCreate', async interaction => {
                                 await browser.close();
                                 const embed = new EmbedBuilder()
                                     .setColor('#00FF00')
-                                    .setTitle('FiveM Server Installation')
+                                    .setTitle(lang.installationSuccess)
                                     .setDescription(`Installation completed successfully (ID: **__${customId}__**).`)
                                     .addFields(
                                         { name: 'Output', value: `\`\`\`${output || "No output"}\`\`\`` }
@@ -207,7 +270,7 @@ client.on('interactionCreate', async interaction => {
                                     .setTimestamp();
 
                                 await interaction.followUp({
-                                    content: `Server installation process finished! (ID: **__${customId}__**)`,
+                                    content: `${lang.processFinished} (ID: **__${customId}__**)`,
                                     embeds: [embed],
                                     files: [
                                         { attachment: screenshotPath, name: "output.png" },
@@ -264,7 +327,7 @@ client.on('interactionCreate', async interaction => {
                         console.error("Error executing command:", err);
                         const errorEmbed = new EmbedBuilder()
                             .setColor('#FF0000')
-                            .setTitle('Installation Error')
+                            .setTitle(lang.installationError)
                             .setDescription(`An error occurred during the installation process (ID: **__${customId}__**).`)
                             .addFields(
                                 { name: 'IP Address', value: `||${ip}||`, inline: true },
@@ -289,7 +352,7 @@ client.on('interactionCreate', async interaction => {
                 });
                 collector.on('end', async collected => {
                     if (!collected.size) {
-                        await interaction.editReply({ content: `No response received. MySQL installation skipped. (ID: **__${customId}__**)`, components: [] });
+                        await interaction.editReply({ content: `${lang.noResponse} (ID: **__${customId}__**)`, components: [] });
                     }
                 });
 
@@ -297,7 +360,7 @@ client.on('interactionCreate', async interaction => {
                 console.error("Error during interaction:", error);
                 const errorEmbed = new EmbedBuilder()
                     .setColor('#FF0000')
-                    .setTitle('Installation Error')
+                    .setTitle(lang.installationError)
                     .setDescription(`An error occurred during the interaction process (ID: **__${customId}__**).`)
                     .addFields(
                         { name: 'IP Address', value: `||${ip}||`, inline: true },
@@ -332,9 +395,9 @@ client.on('interactionCreate', async interaction => {
                     `It seems the provided connection details are incorrect:\n\n` +
                     `**Error:** ${err.message || 'Unknown error'}\n\n` +
                     `**Suggestion:** ${suggestion}\n\n` +
-                    `Please check your inputs!\n\n` +
-                    `Try again or open a ticket! <#${helpChannelId}>\n` +
-                    `If you ask in the Help Channel, kindly send the ID **__${customId}__** too!`
+                    `${lang.checkInputs}\n\n` +
+                    `${lang.tryAgain} <#${helpChannelId}>\n` +
+                    `${lang.sendId}`
                 )
                 .setFields(
                     { name: 'IP Address', value: `||${ip}||`, inline: true },
