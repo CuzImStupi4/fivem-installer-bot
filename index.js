@@ -81,7 +81,6 @@ client.on('interactionCreate', async interaction => {
     const user = interaction.options.getString("user");
     const password = interaction.options.getString("password");
 
-    // Validate IP address and port
     const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
     const portRegex = /^([0-9]{1,5})$/;
 
