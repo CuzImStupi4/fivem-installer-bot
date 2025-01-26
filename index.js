@@ -279,6 +279,7 @@ client.on('interactionCreate', async interaction => {
         }
     }).on('error', async (err) => {
         console.error("SSH Error:", err);
+        const suggestion = err.level === 'client-authentication' ? 'Check your username and password' : 'Check your IP address and port';
 
         const errorEmbed = new EmbedBuilder()
             .setColor('#FF0000')
@@ -286,6 +287,7 @@ client.on('interactionCreate', async interaction => {
             .setDescription(
                 `It seems the provided connection details are incorrect:\n\n` +
                 `**Error:** ${err.message || 'Unknown error'}\n\n` +
+                `**Suggestion:** ${suggestion}\n\n` +
                 `Please check your inputs!\n\n` +
                 `Try again or open a ticket! <#${helpChannelId}>\n` +
                 `If you ask in the Help Channel, kindly send the ID **__${customId}__** too!`
