@@ -90,7 +90,14 @@ const languages = {
         mysqlInstallations: "MySQL Installations",
         nonMysqlInstallations: "Non-MySQL Installations",
         errors: "Errors",
-        noErrors: "No errors recorded"
+        noErrors: "No errors recorded",
+        helpTitle: "Available Commands",
+        helpDescription: "Here are the available commands:",
+        helpCommands: [
+            { name: "/install", value: "Installs a FiveM server" },
+            { name: "/stats", value: "Displays installation statistics" },
+            { name: "/help", value: "Displays this help message" }
+        ]
     },
     de: {
         installPrompt: "Möchten Sie MySQL installieren?\n⚠︎   Dies wird dann die alte Datenbank vollständig **löschen**, **falls eine installiert ist**!   ⚠︎\n\n⚠︎   **__Wir sind nicht verantwortlich, wenn etwas gelöscht wurde!__**   ⚠︎",
@@ -114,7 +121,14 @@ const languages = {
         mysqlInstallations: "MySQL-Installationen",
         nonMysqlInstallations: "Nicht-MySQL-Installationen",
         errors: "Fehler",
-        noErrors: "Keine Fehler aufgezeichnet"
+        noErrors: "Keine Fehler aufgezeichnet",
+        helpTitle: "Verfügbare Befehle",
+        helpDescription: "Hier sind die verfügbaren Befehle:",
+        helpCommands: [
+            { name: "/install", value: "Installiert einen FiveM-Server" },
+            { name: "/stats", value: "Zeigt Installationsstatistiken an" },
+            { name: "/help", value: "Zeigt diese Hilfenachricht an" }
+        ]
     }
 };
 
@@ -154,6 +168,27 @@ const commands = [
     new SlashCommandBuilder()
         .setName("stats")
         .setDescription("Displays installation statistics")
+        .addStringOption(option =>
+            option.setName("language")
+                .setDescription("Select language")
+                .setRequired(false)
+                .addChoices(
+                    { name: 'English', value: 'en' },
+                    { name: 'Deutsch', value: 'de' }
+                )
+        ),
+    new SlashCommandBuilder()
+        .setName("help")
+        .setDescription("Displays available commands and their descriptions")
+        .addStringOption(option =>
+            option.setName("language")
+                .setDescription("Select language")
+                .setRequired(false)
+                .addChoices(
+                    { name: 'English', value: 'en' },
+                    { name: 'Deutsch', value: 'de' }
+                )
+        )
 ];
 
 const rest = new REST({ version: '10' }).setToken(token);
@@ -411,21 +446,37 @@ client.on('interactionCreate', async interaction => {
             saveStatistics();
         }).connect({ host: ip, port: parseInt(port), username: user, password: password });
     } else if (interaction.commandName === "stats") {
+        const language = interaction.options.getString("language") || 'en';
+        const lang = languages[language] || languages.en;
+
         const errorStats = Object.entries(statistics.errors).map(([error, count]) => `${error}: ${count}`).join('\n') || 'No errors recorded';
 
         const statsEmbed = new EmbedBuilder()
             .setColor('#00FF00')
-            .setTitle('Installation Statistics')
+            .setTitle(lang.statsTitle)
             .addFields(
-                { name: 'Total Installations', value: statistics.totalInstallations.toString(), inline: true },
-                { name: 'MySQL Installations', value: statistics.mysqlInstallations.toString(), inline: true },
-                { name: 'Non-MySQL Installations', value: statistics.nonMysqlInstallations.toString(), inline: true },
-                { name: 'Errors', value: errorStats }
+                { name: lang.totalInstallations, value: statistics.totalInstallations.toString(), inline: true },
+                { name: lang.mysqlInstallations, value: statistics.mysqlInstallations.toString(), inline: true },
+                { name: lang.nonMysqlInstallations, value: statistics.nonMysqlInstallations.toString(), inline: true },
+                { name: lang.errors, value: errorStats }
             )
             .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
             .setTimestamp();
 
         await interaction.reply({ embeds: [statsEmbed], flags: 64 });
+    } else if (interaction.commandName === "help") {
+        const language = interaction.options.getString("language") || 'en';
+        const lang = languages[language] || languages.en;
+
+        const helpEmbed = new EmbedBuilder()
+            .setColor('#00FF00')
+            .setTitle(lang.helpTitle)
+            .setDescription(lang.helpDescription)
+            .addFields(lang.helpCommands)
+            .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [helpEmbed], flags: 64 });
     }
 });
 
