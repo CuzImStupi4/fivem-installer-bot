@@ -67,6 +67,10 @@ function sendErrorEmbed(interaction, customId, lang, err, errorChannelId) {
     return interaction.followUp({ content: `SSH Error: ${err.message} (ID: **__${customId}__**)`, flags: 64 });
 }
 
+function setWaitingStatus() {
+    client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
+}
+
 const languages = {
     en: {
         installPrompt: "Do you want to install MySQL?\n⚠︎   This will then Fully **delete** the old database **if one is installed**!   ⚠︎\n\n⚠︎   **__We are not Responsible if it deleted something!__**   ⚠︎",
@@ -204,7 +208,7 @@ const rest = new REST({ version: '10' }).setToken(token);
 
 client.on('ready', () => {
     console.log(`Logged in as ${client.user.tag}`);
-    client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
+    setWaitingStatus();
 });
 
 client.on('interactionCreate', async interaction => {
@@ -268,7 +272,7 @@ client.on('interactionCreate', async interaction => {
                     try {
                         ssh.exec(command, (err, stream) => {
                             if (err) {
-                                client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
+                                setWaitingStatus();
                                 return sendErrorEmbed(interaction, customId, lang, err, errorChannelId);
                             }
 
@@ -376,23 +380,23 @@ client.on('interactionCreate', async interaction => {
                                 }
                                 saveStatistics();
 
-                                client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
+                                setWaitingStatus();
                             });
                         });
                     } catch (err) {
-                        client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
+                        setWaitingStatus();
                         return sendErrorEmbed(interaction, customId, lang, err, errorChannelId);
                     }
                 });
                 collector.on('end', async collected => {
                     if (!collected.size) {
                         await interaction.editReply({ content: `${lang.noResponse} (ID: **__${customId}__**)`, components: [] });
-                        client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
+                        setWaitingStatus();
                     }
                 });
 
             } catch (error) {
-                client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
+                setWaitingStatus();
                 return sendErrorEmbed(interaction, customId, lang, error, errorChannelId);
             }
         }).on('error', async (err) => {
@@ -456,6 +460,7 @@ client.on('interactionCreate', async interaction => {
 
             statistics.errors[err.message] = (statistics.errors[err.message] || 0) + 1;
             saveStatistics();
+            setWaitingStatus();
         }).connect({ host: ip, port: parseInt(port), username: user, password: password });
     } else if (interaction.commandName === "stats") {
         const language = interaction.options.getString("language") || 'en';
