@@ -8,6 +8,7 @@ const puppeteer = require('puppeteer');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const languages = require('./languages.json');
 
 const token = process.env.DISCORD_BOT_TOKEN;
 const clientid = process.env.DISCORD_CLIENT_ID;
@@ -70,71 +71,6 @@ function sendErrorEmbed(interaction, customId, lang, err, errorChannelId) {
 function setWaitingStatus() {
     client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
 }
-
-const languages = {
-    en: {
-        installPrompt: "Do you want to install MySQL?\n⚠︎   This will then Fully **delete** the old database **if one is installed**!   ⚠︎\n\n⚠︎   **__We are not Responsible if it deleted something!__**   ⚠︎",
-        mysqlYes: "Install MySQL",
-        mysqlNo: "Skip MySQL",
-        mysqlSelected: "MySQL installation selected: ",
-        invalidIp: "Invalid IP address format.",
-        invalidPort: "Invalid port format. Port must be a number between 0 and 65535.",
-        noPermission: "You do not have permission to use this command.",
-        installationSuccess: "Installation completed successfully",
-        installationError: "An error occurred during the installation process",
-        connectionError: "Connection Error",
-        checkInputs: "Please check your inputs!",
-        tryAgain: "Try again or open a ticket!",
-        sendId: "If you ask in the Help Channel, kindly send the ID **__${customId}__** too!",
-        noResponse: "No response received. MySQL installation skipped.",
-        processFinished: "Server installation process finished!",
-        newServer: "A new FiveM server has been successfully installed by <@${interaction.user.id}>!",
-        statsTitle: "Installation Statistics",
-        totalInstallations: "Total Installations",
-        mysqlInstallations: "MySQL Installations",
-        nonMysqlInstallations: "Non-MySQL Installations",
-        errors: "Errors",
-        noErrors: "No errors recorded",
-        helpTitle: "Available Commands",
-        helpDescription: "Here are the available commands:",
-        helpCommands: [
-            { name: "/install", value: "Installs a FiveM server" },
-            { name: "/stats", value: "Displays installation statistics" },
-            { name: "/help", value: "Displays this help message" }
-        ],
-    },
-    de: {
-        installPrompt: "Möchten Sie MySQL installieren?\n⚠︎   Dies wird dann die alte Datenbank vollständig **löschen**, **falls eine installiert ist**!   ⚠︎\n\n⚠︎   **__Wir sind nicht verantwortlich, wenn etwas gelöscht wurde!__**   ⚠︎",
-        mysqlYes: "MySQL installieren",
-        mysqlNo: "MySQL überspringen",
-        mysqlSelected: "MySQL-Installation ausgewählt: ",
-        invalidIp: "Ungültiges IP-Adressformat.",
-        invalidPort: "Ungültiges Portformat. Der Port muss eine Zahl zwischen 0 und 65535 sein.",
-        noPermission: "Sie haben keine Berechtigung, diesen Befehl zu verwenden.",
-        installationSuccess: "Installation erfolgreich abgeschlossen",
-        installationError: "Während des Installationsprozesses ist ein Fehler aufgetreten",
-        connectionError: "Verbindungsfehler",
-        checkInputs: "Bitte überprüfen Sie Ihre Eingaben!",
-        tryAgain: "Versuchen Sie es erneut oder öffnen Sie ein Ticket!",
-        sendId: "Wenn Sie im Hilfekanal fragen, senden Sie bitte auch die ID **__${customId}__**!",
-        noResponse: "Keine Antwort erhalten. MySQL-Installation übersprungen.",
-        processFinished: "Server-Installationsprozess abgeschlossen!",
-        newServer: "Ein neuer FiveM-Server wurde erfolgreich von <@${interaction.user.id}> installiert!",
-        statsTitle: "Installationsstatistiken",
-        totalInstallations: "Gesamtinstallationen",
-        mysqlInstallations: "MySQL-Installationen",
-        nonMysqlInstallations: "Nicht-MySQL-Installationen",
-        errors: "Fehler",
-        noErrors: "Keine Fehler aufgezeichnet",
-        helpTitle: "Verfügbare Befehle",
-        helpDescription: "Hier sind die verfügbaren Befehle:",
-        helpCommands: [
-            { name: "/install", value: "Installiert einen FiveM-Server" },
-            { name: "/stats", value: "Zeigt Installationsstatistiken an" },
-            { name: "/help", value: "Zeigt diese Hilfenachricht an" }
-        ],
-    }
-};
 
 const commands = [
     new SlashCommandBuilder()
