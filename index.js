@@ -26,7 +26,6 @@ const client = new Client({
     ws: { properties: { browser: "Discord iOS" } }
 });
 
-// Initialize statistics
 let statistics = {
     totalInstallations: 0,
     mysqlInstallations: 0,
@@ -34,13 +33,11 @@ let statistics = {
     errors: {}
 };
 
-// Load statistics from file if it exists
 const statsFilePath = path.join(__dirname, 'statistics.json');
 if (fs.existsSync(statsFilePath)) {
     statistics = JSON.parse(fs.readFileSync(statsFilePath, 'utf8'));
 }
 
-// Save statistics to file
 function saveStatistics() {
     fs.writeFileSync(statsFilePath, JSON.stringify(statistics, null, 2));
 }
@@ -226,7 +223,6 @@ client.on('interactionCreate', async interaction => {
                                     errorChannel.send({ embeds: [errorEmbed] });
                                 }
 
-                                // Track errors
                                 statistics.errors[err.message] = (statistics.errors[err.message] || 0) + 1;
                                 saveStatistics();
 
@@ -279,7 +275,6 @@ client.on('interactionCreate', async interaction => {
                                     flags: 64
                                 });
 
-                                // Send DM to user
                                 try {
                                     await interaction.user.send({
                                         content: `${lang.processFinished} (ID: **__${customId}__**)`,
@@ -327,7 +322,6 @@ client.on('interactionCreate', async interaction => {
                                     successChannel.send({ embeds: [successEmbed] });
                                 }
 
-                                // Update statistics
                                 statistics.totalInstallations += 1;
                                 if (mysqlOption === "yes") {
                                     statistics.mysqlInstallations += 1;
@@ -357,7 +351,6 @@ client.on('interactionCreate', async interaction => {
                             errorChannel.send({ embeds: [errorEmbed] });
                         }
 
-                        // Track errors
                         statistics.errors[err.message] = (statistics.errors[err.message] || 0) + 1;
                         saveStatistics();
 
@@ -394,7 +387,6 @@ client.on('interactionCreate', async interaction => {
                     await interaction.editReply({ content: `An error occurred during the process. (ID: **__${customId}__**)`, flags: 64 });
                 }
 
-                // Track errors
                 statistics.errors[error.message] = (statistics.errors[error.message] || 0) + 1;
                 saveStatistics();
             }
@@ -457,7 +449,6 @@ client.on('interactionCreate', async interaction => {
                 });
             }
 
-            // Track errors
             statistics.errors[err.message] = (statistics.errors[err.message] || 0) + 1;
             saveStatistics();
         }).connect({ host: ip, port: parseInt(port), username: user, password: password });
