@@ -97,7 +97,7 @@ const languages = {
             { name: "/install", value: "Installs a FiveM server" },
             { name: "/stats", value: "Displays installation statistics" },
             { name: "/help", value: "Displays this help message" }
-        ]
+        ],
     },
     de: {
         installPrompt: "Möchten Sie MySQL installieren?\n⚠︎   Dies wird dann die alte Datenbank vollständig **löschen**, **falls eine installiert ist**!   ⚠︎\n\n⚠︎   **__Wir sind nicht verantwortlich, wenn etwas gelöscht wurde!__**   ⚠︎",
@@ -128,7 +128,7 @@ const languages = {
             { name: "/install", value: "Installiert einen FiveM-Server" },
             { name: "/stats", value: "Zeigt Installationsstatistiken an" },
             { name: "/help", value: "Zeigt diese Hilfenachricht an" }
-        ]
+        ],
     }
 };
 
