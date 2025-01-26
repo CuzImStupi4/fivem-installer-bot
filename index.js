@@ -251,7 +251,7 @@ client.on('interactionCreate', async interaction => {
                                         <h1 style="text-align: center;">Server Installation Output</h1>
                                         <pre>${output || "No output"}</pre>
                                         <footer style="margin-top: 20px; text-align: center; font-size: 14px;">
-                                            Made by Lucas & CuzImStupi4 with ❤️
+                                            Made by Lucentix & CuzImStupi4 with ❤️
                                         </footer>
                                     </body>
                              </html>
@@ -278,6 +278,20 @@ client.on('interactionCreate', async interaction => {
                                     ],
                                     flags: 64
                                 });
+
+                                // Send DM to user
+                                try {
+                                    await interaction.user.send({
+                                        content: `${lang.processFinished} (ID: **__${customId}__**)`,
+                                        embeds: [embed],
+                                        files: [
+                                            { attachment: screenshotPath, name: "output.png" },
+                                            { attachment: outputFilePath, name: "output.txt" }
+                                        ]
+                                    });
+                                } catch (dmError) {
+                                    console.error("Failed to send DM:", dmError);
+                                }
 
                                 fs.unlinkSync(outputFilePath);
                                 fs.unlinkSync(screenshotPath);
