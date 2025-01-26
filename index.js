@@ -81,6 +81,18 @@ client.on('interactionCreate', async interaction => {
     const user = interaction.options.getString("user");
     const password = interaction.options.getString("password");
 
+    // Validate IP address and port
+    const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    const portRegex = /^([0-9]{1,5})$/;
+
+    if (!ipRegex.test(ip)) {
+        return interaction.editReply({ content: "Invalid IP address format.", flags: 64 });
+    }
+
+    if (!portRegex.test(port) || parseInt(port) > 65535) {
+        return interaction.editReply({ content: "Invalid port format. Port must be a number between 0 and 65535.", flags: 64 });
+    }
+
     const customId = crypto.randomBytes(3).toString('hex').slice(0, 5);
 
     const ssh = new SSHClient();
