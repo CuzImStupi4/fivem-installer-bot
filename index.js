@@ -1,4 +1,5 @@
 require("dotenv").config();
+require('v8').setFlagsFromString('--max-old-space-size=6096');
 const { Routes } = require('discord-api-types/v10');
 const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ActivityType } = require('discord.js');
 const { Client: SSHClient } = require('ssh2');
@@ -38,12 +39,21 @@ let statistics = {
 
 const statsFilePath = path.join(__dirname, 'statistics.json');
 if (fs.existsSync(statsFilePath)) {
-    statistics = JSON.parse(fs.readFileSync(statsFilePath, 'utf8'));
+    const readStream = fs.createReadStream(statsFilePath, { encoding: 'utf8' });
+    let data = '';
+    readStream.on('data', chunk => {
+        data += chunk;
+    });
+    readStream.on('end', () => {
+        statistics = JSON.parse(data);
+    });
 }
 
 async function saveStatistics() {
     try {
-        await fsPromises.writeFile(statsFilePath, JSON.stringify(statistics, null, 2));
+        const writeStream = fs.createWriteStream(statsFilePath);
+        writeStream.write(JSON.stringify(statistics, null, 2));
+        writeStream.end();
     } catch (error) {
         console.error('Error saving statistics:', error);
     }
@@ -143,8 +153,6 @@ function cleanOutput(output) {
     return output.replace(/\x1B\[[0-9;]*m/g, '').replace(/\x1B\].*?\x07/g, '').replace(/[^\x00-\x7F]/g, '');
 }
 
-
-
 function extractRelevantOutput(output, mysqlOption) {
     const startIndex = output.indexOf('TxAdmin was started successfully');
     if (startIndex === -1) return output;
@@ -163,7 +171,7 @@ function extractRelevantOutput(output, mysqlOption) {
 async function generateScreenshot(output) {
     let browser = null;
     try {
-        const browser = await puppeteer.launch();
+        browser = await puppeteer.launch();
         const page = await browser.newPage();
         await page.setContent(`
             <html>
@@ -399,7 +407,9 @@ client.on('interactionCreate', async interaction => {
                                 try {
                                     const cleanedOutput = cleanOutput(output);
                                     const relevantOutput = extractRelevantOutput(cleanedOutput, mysqlOption);
-                                    await fsPromises.writeFile(outputFilePath, relevantOutput);
+                                    const writeStream = fs.createWriteStream(outputFilePath);
+                                    writeStream.write(relevantOutput);
+                                    writeStream.end();
                                     console.log(`Saved output to file: ${outputFilePath}`);
                                     const screenshotPath = await generateScreenshot(relevantOutput);
                                     console.log(`Generated screenshot: ${screenshotPath}`);
@@ -428,13 +438,6 @@ client.on('interactionCreate', async interaction => {
                                         ])
                                         .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
                                         .setTimestamp();
-
-                                    // await interaction.followUp({
-                                    //     content: `${lang.processFinished} (ID: **__${customId}__**)`,
-                                    //     embeds: [successEmbed],
-                                    //     files,
-                                    //     flags: 64
-                                    // });
 
                                     await sendDM(interaction.user, `${lang.processFinished} (ID: **__${customId}__**)`, successEmbed, files);
 
