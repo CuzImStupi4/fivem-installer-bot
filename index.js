@@ -1,5 +1,5 @@
 require("dotenv").config();
-require('v8').setFlagsFromString('--max-old-space-size=6096');
+require('v8').setFlagsFromString('--max-old-space-size=10096');
 const { Routes } = require('discord-api-types/v10');
 const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ActivityType } = require('discord.js');
 const { Client: SSHClient } = require('ssh2');
