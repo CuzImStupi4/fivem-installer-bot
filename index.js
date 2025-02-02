@@ -1,5 +1,5 @@
 require("dotenv").config();
-require('v8').setFlagsFromString('--max-old-space-size=26096');
+require('v8').setFlagsFromString('--max-old-space-size=10096');
 const { Routes } = require('discord-api-types/v10');
 const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ActivityType } = require('discord.js');
 const { Client: SSHClient } = require('ssh2');
@@ -178,23 +178,15 @@ function setWaitingStatus() {
     client.user.setActivity('Waiting to Install a Server', { type: ActivityType.Watching });
 }
 
-function parseOutput(output) {
-    const urlMatch = output.match(/Webinterface: \x1B\[0m(http:\/\/[^\s]+)/);
-    const pinMatch = output.match(/Pin: \x1B\[0m(\d+)/);
-    const pathMatch = output.match(/Server-Data Path: \x1B\[0m([^\n]+)/);
-
-    return {
-        url: urlMatch ? urlMatch[1] : 'Not found',
-        pin: pinMatch ? pinMatch[1] : 'Not found',
-        path: pathMatch ? pathMatch[1] : 'Not found'
-    };
-}
-
 function cleanOutput(output) {
-    return output.replace(/\x1B\[[0-9;]*m/g, '').replace(/\x1B\].*?\x07/g, '').replace(/[^\x00-\x7F]/g, '');
+    console.log('Original output:', output);
+    const cleaned = output.replace(/\x1B\[[0-9;]*m/g, '').replace(/\x1B\].*?\x07/g, '').replace(/[^\x00-\x7F]/g, '');
+    console.log('Cleaned output:', cleaned);
+    return cleaned;
 }
 
 function extractRelevantOutput(output, mysqlOption) {
+    console.log('Output before extraction:', output);
     const startIndex = output.indexOf('TxAdmin was started successfully');
     if (startIndex === -1) return output;
     let relevantOutput = output.substring(startIndex).trim();
@@ -206,7 +198,24 @@ function extractRelevantOutput(output, mysqlOption) {
         relevantOutput += `\n\n${mysqlData}`;
     }
 
+    console.log('Relevant output:', relevantOutput);
     return relevantOutput;
+}
+
+function parseOutput(output) {
+    console.log('Output to parse:', output);
+    const urlMatch = output.match(/Webinterface: \x1B\[0m(http:\/\/[^\s]+)/);
+    const pinMatch = output.match(/Pin: \x1B\[0m(\d+)/);
+    const pathMatch = output.match(/Server-Data Path: \x1B\[0m([^\n]+)/);
+
+    const parsed = {
+        url: urlMatch ? urlMatch[1] : 'Not found',
+        pin: pinMatch ? pinMatch[1] : 'Not found',
+        path: pathMatch ? pathMatch[1] : 'Not found'
+    };
+
+    console.log('Parsed output:', parsed);
+    return parsed;
 }
 
 async function generateScreenshot(output) {
@@ -444,8 +453,12 @@ client.on('interactionCreate', async interaction => {
                                 }
                             });
 
-                            stream.on('close', async () => {
-                                console.log('SSH stream closed');
+                            stream.stderr.on('data', data => {
+                                console.error('SSH stderr:', data.toString());
+                            });
+
+                            stream.on('close', async (code, signal) => {
+                                console.log(`SSH stream closed with code ${code} and signal ${signal}`);
                                 ssh.end();
                                 const tempDir = os.tmpdir();
                                 const outputFilePath = path.join(tempDir, `output-${Date.now()}.txt`);
