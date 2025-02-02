@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowB
 const { Client: SSHClient } = require('ssh2');
 const { REST } = require('@discordjs/rest');
 const fs = require('fs');
+const fsPromises = fs.promises;
 const puppeteer = require('puppeteer');
 const os = require('os');
 const path = require('path');
@@ -39,22 +40,26 @@ if (fs.existsSync(statsFilePath)) {
     statistics = JSON.parse(fs.readFileSync(statsFilePath, 'utf8'));
 }
 
-function saveStatistics() {
-    fs.writeFileSync(statsFilePath, JSON.stringify(statistics, null, 2));
+async function saveStatistics() {
+    try {
+        await fsPromises.writeFile(statsFilePath, JSON.stringify(statistics, null, 2));
+    } catch (error) {
+        console.error('Error saving statistics:', error);
+    }
 }
 
-function chunkOutput(output, maxLength = 1900) {
+async function chunkOutput(output, maxLength = 1900) {
     const chunks = [];
     let currentChunk = '';
 
-    output.split('\n').forEach(line => {
+    for (const line of output.split('\n')) {
         if (currentChunk.length + line.length + 1 > maxLength) {
             chunks.push(currentChunk);
             currentChunk = line;
         } else {
             currentChunk += (currentChunk ? '\n' : '') + line;
         }
-    });
+    }
 
     if (currentChunk) {
         chunks.push(currentChunk);
@@ -101,11 +106,11 @@ function sendErrorEmbed(interaction, customId, lang, err, errorChannelId) {
     saveStatistics();
 
     if (!interaction.replied && !interaction.deferred) {
-        return interaction.reply({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), ephemeral: true });
+        return interaction.reply({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), flags: 64 });
     } else if (interaction.deferred) {
-        return interaction.editReply({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), ephemeral: true });
+        return interaction.editReply({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), flags: 64 });
     } else {
-        return interaction.followUp({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), ephemeral: true });
+        return interaction.followUp({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), flags: 64 });
     }
 }
 
@@ -127,6 +132,61 @@ function parseOutput(output) {
         pin: pinMatch ? pinMatch[1] : 'Not found',
         path: pathMatch ? pathMatch[1] : 'Not found'
     };
+}
+
+function cleanOutput(output) {
+    return output.replace(/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]/g, '');
+}
+
+function extractRelevantOutput(output, mysqlOption) {
+    const startIndex = output.indexOf('TxAdmin was started successfully');
+    if (startIndex === -1) return output;
+    let relevantOutput = output.substring(startIndex).trim();
+
+    if (mysqlOption === 'yes') {
+        const mysqlStartIndex = output.indexOf('FiveM MySQL-Data');
+        if (mysqlStartIndex !== -1) {
+            const mysqlEndIndex = output.indexOf('sleep 1', mysqlStartIndex);
+            const mysqlData = output.substring(mysqlStartIndex, mysqlEndIndex).trim();
+            relevantOutput += `\n\n${mysqlData}`;
+        }
+    }
+
+    return relevantOutput;
+}
+
+async function generateScreenshot(output) {
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    const htmlContent = `
+        <html>
+        <body style="background: #141313; color: white; font-family: monospace; padding: 20px;">
+            <h1 style="text-align: center;">Server Installation Output</h1>
+            <pre>${output || "No output"}</pre>
+            <footer style="margin-top: 20px; text-align: center; font-size: 14px;">
+                Made by Lucentix & CuzImStupi4 with ❤️
+            </footer>
+        </body>
+        </html>
+    `;
+    await page.setContent(htmlContent);
+    const screenshotPath = path.join(os.tmpdir(), `screenshot-${Date.now()}.png`);
+    await page.screenshot({ path: screenshotPath });
+    await browser.close();
+    return screenshotPath;
+}
+
+async function sendDM(user, content, embed, files) {
+    try {
+        await user.send({
+            content: content,
+            embeds: [embed],
+            files: files
+        });
+        console.log('Sent DM to user');
+    } catch (dmError) {
+        console.error("Failed to send DM:", dmError);
+    }
 }
 
 const commands = [
@@ -207,40 +267,51 @@ client.on('ready', () => {
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
 
+    console.log(`Received command: ${interaction.commandName}`);
+
     if (interaction.commandName === "install") {
         const language = interaction.options.getString("language");
         const lang = languages[language] || languages.en;
 
         if (!interaction.member.roles.cache.has(accessedRole)) {
+            console.log('User does not have the required role');
             return interaction.reply({ content: lang.noPermission, flags: 64 });
         }
 
         await interaction.deferReply({ flags: 64 });
+        console.log('Deferred reply for install command');
 
         const ip = interaction.options.getString("ip");
         const port = interaction.options.getString("port");
         const user = interaction.options.getString("user");
         const password = interaction.options.getString("password");
 
+        console.log(`IP: ${ip}, Port: ${port}, User: ${user}`);
+
         const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         const portRegex = /^([0-9]{1,5})$/;
 
         if (!ipRegex.test(ip)) {
+            console.log('Invalid IP address');
             return interaction.editReply({ content: lang.invalidIp, flags: 64 });
         }
 
         if (!portRegex.test(port) || parseInt(port) > 65535) {
+            console.log('Invalid port');
             return interaction.editReply({ content: lang.invalidPort, flags: 64 });
         }
 
         const customId = crypto.randomBytes(3).toString('hex').slice(0, 5);
+        console.log(`Generated custom ID: ${customId}`);
 
         const ssh = new SSHClient();
         let output = '';
+        let lastMessage = '';
 
         client.user.setActivity(`Installing for ${interaction.user.tag}...`, { type: ActivityType.Playing });
 
         ssh.on('ready', async () => {
+            console.log('SSH connection ready');
             const mysqlRow = new ActionRowBuilder()
                 .addComponents(
                     new ButtonBuilder()
@@ -253,20 +324,25 @@ client.on('interactionCreate', async interaction => {
                         .setStyle(ButtonStyle.Danger)
                 );
             try {
-                await interaction.editReply({ content: lang.installPrompt, components: [mysqlRow] });
+                await interaction.editReply({ content: lang.installPrompt, components: [mysqlRow], flags: 64 });
+                console.log('Prompted user for MySQL option');
 
                 const filter = i => i.user.id === interaction.user.id;
                 const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
                 collector.on('collect', async i => {
                     const mysqlOption = i.customId === 'mysql_yes' ? 'yes' : 'no';
-                    await i.update({ content: `${lang.mysqlSelected} ${mysqlOption}`, components: [] });
+                    await i.update({ content: `${lang.mysqlSelected} ${mysqlOption}`, components: [], flags: 64 });
+                    console.log(`User selected MySQL option: ${mysqlOption}`);
 
                     const command = mysqlOption === "yes"
-                        ? "bash <(curl -s https://raw.githubusercontent.com/Twe3x/fivem-installer/main/setup.sh) --non-interactive --kill-port -c --delete-dir"
-                        : "bash <(curl -s https://raw.githubusercontent.com/Twe3x/fivem-installer/main/setup.sh) --no-mysql";
+                        ? "bash <(curl -s https://raw.githubusercontent.com/Twe3x/fivem-installer/main/setup.sh) --non-interactive --kill-port -c --delete-dir -p --security  --generate_password --db_user fivem"
+                        : "bash <(curl -s https://raw.githubusercontent.com/Twe3x/fivem-installer/main/setup.sh) --non-interactive --kill-port -c --delete-dir";
+
+                    console.log(`Executing command: ${command}`);
                     try {
                         ssh.exec(command, (err, stream) => {
                             if (err) {
+                                console.error('SSH exec error:', err);
                                 setWaitingStatus();
                                 return sendErrorEmbed(interaction, customId, lang, err, errorChannelId);
                             }
@@ -274,22 +350,20 @@ client.on('interactionCreate', async interaction => {
                             stream.on('data', async data => {
                                 const newOutput = data.toString();
                                 output += newOutput;
+                                console.log(`Received SSH output: ${newOutput}`);
 
-                                const chunks = chunkOutput(output);
+                                const cleanedOutput = cleanOutput(output);
+                                const chunks = await chunkOutput(cleanedOutput);
                                 if (chunks.length > 0) {
                                     try {
-                                        await interaction.editReply({
-                                            content: chunks[chunks.length - 1],
-                                            components: []
-                                        });
-
-                                        if (chunks.length > 1) {
-                                            for (let i = 0; i < chunks.length - 1; i++) {
-                                                await interaction.followUp({
-                                                    content: chunks[i],
-                                                    ephemeral: true
-                                                });
-                                            }
+                                        const lastChunk = chunks[chunks.length - 1];
+                                        if (lastChunk !== lastMessage) {
+                                            await interaction.editReply({
+                                                content: lastChunk,
+                                                components: [],
+                                                flags: 64
+                                            });
+                                            lastMessage = lastChunk;
                                         }
                                     } catch (error) {
                                         console.error('Error updating messages:', error);
@@ -297,131 +371,30 @@ client.on('interactionCreate', async interaction => {
                                 }
                             });
 
-
-                            async function generateScreenshot(output) {
-                                let browser = null;
-                                try {
-                                    browser = await puppeteer.launch({
-                                        headless: "new",
-                                        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-                                        userDataDir: path.join(os.tmpdir(), `puppeteer_dev_chrome_profile-${Date.now()}`)
-                                    });
-
-                                    const page = await browser.newPage();
-                                    await page.setDefaultNavigationTimeout(30000);
-
-                                    await page.setContent(`
-                                        <html>
-                                        <body style="background: #141313; color: white; font-family: monospace; padding: 20px;">
-                                            <h1 style="text-align: center;">Server Installation Output</h1>
-                                            <pre>${output || "No output"}</pre>
-                                            <footer style="margin-top: 20px; text-align: center; font-size: 14px;">
-                                                Made by Lucentix & CuzImStupi4 with ❤️
-                                            </footer>
-                                        </body>
-                                        </html>
-                                    `);
-
-                                    const screenshotPath = path.join(os.tmpdir(), `output-${Date.now()}.png`);
-                                    await page.screenshot({ path: screenshotPath });
-                                    await page.close();
-                                    return screenshotPath;
-                                } catch (error) {
-                                    console.error('Screenshot generation failed:', error);
-                                    return null;
-                                } finally {
-                                    if (browser) {
-                                        try {
-                                            await browser.close();
-                                        } catch (error) {
-                                            console.error('Browser close error:', error);
-                                        }
-                                    }
-                                }
-                            }
-
                             stream.on('close', async () => {
+                                console.log('SSH stream closed');
                                 ssh.end();
                                 const tempDir = os.tmpdir();
                                 const outputFilePath = path.join(tempDir, `output-${Date.now()}.txt`);
 
                                 try {
-                                    fs.writeFileSync(outputFilePath, output);
-                                    const screenshotPath = await generateScreenshot(output);
+                                    const cleanedOutput = cleanOutput(output);
+                                    const relevantOutput = extractRelevantOutput(cleanedOutput, mysqlOption);
+                                    await fsPromises.writeFile(outputFilePath, relevantOutput);
+                                    console.log(`Saved output to file: ${outputFilePath}`);
+                                    const screenshotPath = await generateScreenshot(relevantOutput);
+                                    console.log(`Generated screenshot: ${screenshotPath}`);
 
                                     const files = [];
-                                    if (fs.existsSync(outputFilePath)) {
+                                    if (await fsPromises.access(outputFilePath).then(() => true).catch(() => false)) {
                                         files.push({ attachment: outputFilePath, name: "output.txt" });
                                     }
-                                    if (screenshotPath && fs.existsSync(screenshotPath)) {
+                                    if (screenshotPath && await fsPromises.access(screenshotPath).then(() => true).catch(() => false)) {
                                         files.push({ attachment: screenshotPath, name: "output.png" });
                                     }
 
-                                    const { url, pin, path: serverPath } = parseOutput(output);
-
-                                    await interaction.followUp({
-                                        content: `${lang.processFinished} (ID: **__${customId}__**)`,
-                                        embeds: [successEmbed],
-                                        files,
-                                        ephemeral: true
-                                    });
-
-                                    setTimeout(() => {
-                                        try {
-                                            if (fs.existsSync(outputFilePath)) fs.unlinkSync(outputFilePath);
-                                            if (screenshotPath && fs.existsSync(screenshotPath)) fs.unlinkSync(screenshotPath);
-                                        } catch (error) {
-                                            console.error('Cleanup error:', error);
-                                        }
-                                    }, 1000);
-
-                                    const embed = new EmbedBuilder()
-                                        .setColor('#00FF00')
-                                        .setTitle(lang.installationSuccess)
-                                        .setDescription(`Installation completed successfully (ID: **__${customId}__**).`)
-                                        .addFields(
-                                            { name: 'Output', value: `\`\`\`${output || "No output"}\`\`\`` }
-                                        )
-                                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
-                                        .setTimestamp();
-
-                                    await interaction.followUp({
-                                        content: `${lang.processFinished} (ID: **__${customId}__**)`,
-                                        embeds: [embed],
-                                        files: [
-                                            { attachment: screenshotPath, name: "output.png" },
-                                            { attachment: outputFilePath, name: "output.txt" }
-                                        ],
-                                        flags: 64
-                                    });
-
-                                    try {
-                                        await interaction.user.send({
-                                            content: `${lang.processFinished} (ID: **__${customId}__**)`,
-                                            embeds: [embed],
-                                            files: [
-                                                { attachment: screenshotPath, name: "output.png" },
-                                                { attachment: outputFilePath, name: "output.txt" }
-                                            ]
-                                        });
-                                    } catch (dmError) {
-                                        console.error("Failed to send DM:", dmError);
-                                    }
-
-                                    fs.unlinkSync(outputFilePath);
-                                    fs.unlinkSync(screenshotPath);
-
-                                    const publicEmbed = new EmbedBuilder()
-                                        .setColor('#00FF00')
-                                        .setTitle('Server Installation')
-                                        .setDescription(`A new FiveM server has been successfully installed by <@${interaction.user.id}>!`)
-                                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
-                                        .setTimestamp();
-
-                                    const announcementChannel = client.channels.cache.get(announcementChannelId);
-                                    if (announcementChannel) {
-                                        announcementChannel.send({ embeds: [publicEmbed] });
-                                    }
+                                    const { url, pin, path: serverPath } = parseOutput(relevantOutput);
+                                    console.log(`Parsed output - URL: ${url}, PIN: ${pin}, Path: ${serverPath}`);
 
                                     const successEmbed = new EmbedBuilder()
                                         .setColor('#00FF00')
@@ -437,9 +410,62 @@ client.on('interactionCreate', async interaction => {
                                         .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
                                         .setTimestamp();
 
+                                    await interaction.followUp({
+                                        content: `${lang.processFinished} (ID: **__${customId}__**)`,
+                                        embeds: [successEmbed],
+                                        files,
+                                        flags: 64
+                                    });
+
+                                    await sendDM(interaction.user, `${lang.processFinished} (ID: **__${customId}__**)`, successEmbed, files);
+
+                                    setTimeout(async () => {
+                                        try {
+                                            if (await fsPromises.access(outputFilePath).then(() => true).catch(() => false)) await fsPromises.unlink(outputFilePath);
+                                            if (screenshotPath && await fsPromises.access(screenshotPath).then(() => true).catch(() => false)) await fsPromises.unlink(screenshotPath);
+                                            console.log('Cleaned up temporary files');
+                                        } catch (error) {
+                                            console.error('Cleanup error:', error);
+                                        }
+                                    }, 1000);
+
+                                    const embed = new EmbedBuilder()
+                                        .setColor('#00FF00')
+                                        .setTitle(lang.installationSuccess)
+                                        .setDescription(`Installation completed successfully (ID: **__${customId}__**).`)
+                                        .addFields(
+                                            { name: 'Output', value: `\`\`\`${relevantOutput || "No output"}\`\`\`` }
+                                        )
+                                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                                        .setTimestamp();
+
+                                    await interaction.followUp({
+                                        content: `${lang.processFinished} (ID: **__${customId}__**)`,
+                                        embeds: [embed],
+                                        files: [
+                                            { attachment: screenshotPath, name: "output.png" },
+                                            { attachment: outputFilePath, name: "output.txt" }
+                                        ],
+                                        flags: 64
+                                    });
+
+                                    const publicEmbed = new EmbedBuilder()
+                                        .setColor('#00FF00')
+                                        .setTitle('Server Installation')
+                                        .setDescription(`A new FiveM server has been successfully installed by <@${interaction.user.id}>!`)
+                                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                                        .setTimestamp();
+
+                                    const announcementChannel = client.channels.cache.get(announcementChannelId);
+                                    if (announcementChannel) {
+                                        announcementChannel.send({ embeds: [publicEmbed] });
+                                        console.log('Sent announcement to channel');
+                                    }
+
                                     const successChannel = client.channels.cache.get(successChannelId);
                                     if (successChannel) {
                                         successChannel.send({ embeds: [successEmbed] });
+                                        console.log('Sent success message to channel');
                                     }
 
                                     statistics.totalInstallations += 1;
@@ -448,10 +474,12 @@ client.on('interactionCreate', async interaction => {
                                     } else {
                                         statistics.nonMysqlInstallations += 1;
                                     }
-                                    saveStatistics();
+                                    await saveStatistics();
+                                    console.log('Updated statistics');
 
                                     setWaitingStatus();
                                 } catch (error) {
+                                    console.error('Error during installation completion:', error);
                                     setWaitingStatus();
                                     return sendErrorEmbed(interaction, customId, lang, error, errorChannelId);
                                 }
@@ -459,124 +487,80 @@ client.on('interactionCreate', async interaction => {
                         });
                         collector.on('end', async collected => {
                             if (!collected.size) {
-                                await interaction.editReply({ content: `${lang.noResponse} (ID: **__${customId}__**)`, components: [] });
+                                console.log('No response from user for MySQL option');
+                                await interaction.editReply({ content: `${lang.noResponse} (ID: **__${customId}__**)`, components: [], flags: 64 });
                                 setWaitingStatus();
                             }
                         });
 
                     } catch (error) {
+                        console.error('Error during SSH command execution:', error);
                         setWaitingStatus();
                         return sendErrorEmbed(interaction, customId, lang, error, errorChannelId);
                     }
-                }).on('error', async (err) => {
-                    // console.error("SSH Error:", err);
-                    const suggestion = err.level === 'client-authentication' ? 'Check your username and password' : 'Check your IP address and port';
-
-                    const errorEmbed = new EmbedBuilder()
-                        .setColor('#FF0000')
-                        .setTitle('Connection Error')
-                        .setDescription(
-                            `It seems the provided connection details are incorrect:\n\n` +
-                            `**Error:** ${truncateString(err.message || 'Unknown error')}\n\n` +
-                            `**Suggestion:** ${truncateString(suggestion)}\n\n` +
-                            `${truncateString(lang.checkInputs)}\n\n` +
-                            `${truncateString(lang.tryAgain)} <#${helpChannelId}>\n` +
-                            `${truncateString(lang.sendId)}`
-                        )
-                        .addFields([
-                            { name: 'IP Address', value: String(`||${ip}||`).slice(0, 1000), inline: true },
-                            { name: 'Port', value: String(`||${port}||`).slice(0, 1000), inline: true },
-                            { name: 'Username', value: String(`||${user}||`).slice(0, 1000), inline: true },
-                            { name: 'Error', value: truncateString(err.message || 'Unknown error') }
-                        ])
-                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
-                        .setTimestamp();
-
-                    const adminerrorEmbed = new EmbedBuilder()
-                        .setColor('#FF0000')
-                        .setTitle('Connection Error')
-                        .setDescription(
-                            `The user <@${interaction.user.id}>, had an error\n\n` +
-                            `**Error:** ${err.message || 'Unknown error'}\n\n`
-                        )
-                        .setFields(
-                            { name: 'IP Address', value: `||${ip}||`, inline: true },
-                            { name: 'Port', value: `||${port}||`, inline: true },
-                            { name: 'Username', value: `||${user}||`, inline: true },
-                            { name: 'ID', value: `**__${customId}__**`, inline: true }
-                        )
-                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
-                        .setTimestamp();
-
-                    const errorChannel = client.channels.cache.get(errorChannelId);
-                    if (errorChannel) {
-                        errorChannel.send({ embeds: [adminerrorEmbed] });
-                    }
-
-                    if (!interaction.replied) {
-                        await interaction.editReply({
-                            content: `An error occurred: (ID: **__${customId}__**)`,
-                            embeds: [errorEmbed],
-                            ephemeral: true
-                        });
-                    } else {
-                        await interaction.followUp({
-                            content: `An error occurred: (ID: **__${customId}__**)`,
-                            embeds: [errorEmbed],
-                            ephemeral: true
-                        });
-                    }
-
-                    statistics.errors[err.message] = (statistics.errors[err.message] || 0) + 1;
-                    saveStatistics();
-                    setWaitingStatus();
-                }).connect({ host: ip, port: parseInt(port), username: user, password: password });
-            } else if (interaction.commandName === "stats") {
-                try {
-                    const statsEmbed = new EmbedBuilder()
-                        .setColor('#00FF00')
-                        .setTitle('Installation Statistics')
-                        .setDescription('Here are the current installation statistics:')
-                        .addFields([
-                            { name: 'Total Installations', value: String(statistics.totalInstallations), inline: true },
-                            { name: 'MySQL Installations', value: String(statistics.mysqlInstallations), inline: true },
-                            { name: 'Non-MySQL Installations', value: String(statistics.nonMysqlInstallations), inline: true }
-                        ])
-                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
-                        .setTimestamp();
-
-                    await interaction.reply({ embeds: [statsEmbed], ephemeral: true });
-                } catch (error) {
-                    console.error('Error handling stats command:', error);
-                    await interaction.reply({ content: 'An error occurred while fetching statistics.', ephemeral: true });
-                }
-            } else if (interaction.commandName === "help") {
-                try {
-                    const language = interaction.options.getString("language") || 'en';
-                    const lang = languages[language] || languages.en;
-
-                    const helpEmbed = new EmbedBuilder()
-                        .setColor('#00FF00')
-                        .setTitle(lang.helpTitle)
-                        .setDescription(lang.helpDescription)
-                        .addFields([
-                            { name: '/install', value: lang.helpInstall },
-                            { name: '/stats', value: lang.helpStats },
-                            { name: '/help', value: lang.helpHelp }
-                        ])
-                        .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
-                        .setTimestamp();
-
-                    await interaction.reply({
-                        embeds: [helpEmbed],
-                        ephemeral: true
-                    });
-                } catch (error) {
-                    console.error('Error handling help command:', error);
-                    await interaction.reply({ content: 'An error occurred while fetching help information.', ephemeral: true });
-                }
+                });
+            } catch (error) {
+                console.error('Error during SSH connection setup:', error);
+                setWaitingStatus();
+                return sendErrorEmbed(interaction, customId, lang, error, errorChannelId);
             }
+        });
+
+        ssh.on('error', (err) => {
+            console.error('SSH connection error:', err);
+            setWaitingStatus();
+            return sendErrorEmbed(interaction, customId, lang, err, errorChannelId);
+        });
+
+        ssh.connect({ host: ip, port: parseInt(port), username: user, password: password });
+        console.log('SSH connection initiated');
+    } else if (interaction.commandName === "stats") {
+        try {
+            const statsEmbed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle('Installation Statistics')
+                .setDescription('Here are the current installation statistics:')
+                .addFields([
+                    { name: 'Total Installations', value: String(statistics.totalInstallations), inline: true },
+                    { name: 'MySQL Installations', value: String(statistics.mysqlInstallations), inline: true },
+                    { name: 'Non-MySQL Installations', value: String(statistics.nonMysqlInstallations), inline: true }
+                ])
+                .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                .setTimestamp();
+
+            await interaction.reply({ embeds: [statsEmbed], flags: 64 });
+            console.log('Sent statistics embed');
+        } catch (error) {
+            console.error('Error handling stats command:', error);
+            await interaction.reply({ content: 'An error occurred while fetching statistics.', flags: 64 });
+        }
+    } else if (interaction.commandName === "help") {
+        try {
+            const language = interaction.options.getString("language") || 'en';
+            const lang = languages[language] || languages.en;
+
+            const helpEmbed = new EmbedBuilder()
+                .setColor('#00FF00')
+                .setTitle(lang.helpTitle)
+                .setDescription(lang.helpDescription)
+                .addFields([
+                    { name: '/install', value: lang.helpInstall },
+                    { name: '/stats', value: lang.helpStats },
+                    { name: '/help', value: lang.helpHelp }
+                ])
+                .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+                .setTimestamp();
+
+            await interaction.reply({
+                embeds: [helpEmbed],
+                flags: 64
+            });
+            console.log('Sent help embed');
+        } catch (error) {
+            console.error('Error handling help command:', error);
+            await interaction.reply({ content: 'An error occurred while fetching help information.', flags: 64 });
         }
     }
 });
+
 client.login(token);
