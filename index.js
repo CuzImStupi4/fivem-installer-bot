@@ -364,7 +364,7 @@ async function handleInstallCommand(interaction, lang) {
 
     ssh.on('ready', async () => {
         console.log('SSH connection ready');
-        await promptForMySQLOption(interaction, lang, ssh, customId, output, lastMessage);
+        await promptForMySQLOption(interaction, lang, ssh, customId, output, lastMessage, ip, port, user);
     });
 
     ssh.on('error', (err) => {
@@ -377,7 +377,7 @@ async function handleInstallCommand(interaction, lang) {
     console.log('SSH connection initiated');
 }
 
-async function promptForMySQLOption(interaction, lang, ssh, customId, output, lastMessage) {
+async function promptForMySQLOption(interaction, lang, ssh, customId, output, lastMessage, ip, port, user) {
     const mysqlRow = new ActionRowBuilder()
         .addComponents(
             new ButtonBuilder()
@@ -407,7 +407,7 @@ async function promptForMySQLOption(interaction, lang, ssh, customId, output, la
                 : "bash <(curl -s https://raw.githubusercontent.com/Twe3x/fivem-installer/main/setup.sh) --non-interactive --kill-port -c --delete-dir";
 
             console.log(`Executing command: ${command}`);
-            await executeSSHCommand(interaction, lang, ssh, customId, command, output, lastMessage, mysqlOption);
+            await executeSSHCommand(interaction, lang, ssh, customId, command, output, lastMessage, mysqlOption, ip, port, user);
         });
 
         collector.on('end', async collected => {
@@ -424,7 +424,7 @@ async function promptForMySQLOption(interaction, lang, ssh, customId, output, la
     }
 }
 
-async function executeSSHCommand(interaction, lang, ssh, customId, command, output, lastMessage, mysqlOption) {
+async function executeSSHCommand(interaction, lang, ssh, customId, command, output, lastMessage, mysqlOption, ip, port, user) {
     try {
         ssh.exec(command, (err, stream) => {
             if (err) {
@@ -465,7 +465,7 @@ async function executeSSHCommand(interaction, lang, ssh, customId, command, outp
             stream.on('close', async () => {
                 console.log('SSH stream closed');
                 ssh.end();
-                await handleSSHStreamClose(interaction, lang, customId, output, mysqlOption);
+                await handleSSHStreamClose(interaction, lang, customId, output, mysqlOption, ip, port, user);
             });
         });
     } catch (error) {
@@ -475,7 +475,7 @@ async function executeSSHCommand(interaction, lang, ssh, customId, command, outp
     }
 }
 
-async function handleSSHStreamClose(interaction, lang, customId, output, mysqlOption) {
+async function handleSSHStreamClose(interaction, lang, customId, output, mysqlOption, ip, port, user) {
     const tempDir = os.tmpdir();
     const outputFilePath = path.join(tempDir, `output-${Date.now()}.txt`);
 
