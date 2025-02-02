@@ -29,6 +29,7 @@ const client = new Client({
 });
 
 let statistics = {
+    installations: 0,
     totalInstallations: 0,
     mysqlInstallations: 0,
     nonMysqlInstallations: 0,
@@ -102,6 +103,10 @@ function sendErrorEmbed(interaction, customId, lang, err, errorChannelId) {
         errorChannel.send({ embeds: [errorEmbed] });
     }
 
+    if (!statistics.errors) {
+        statistics.errors = {};
+    }
+
     statistics.errors[err.message] = (statistics.errors[err.message] || 0) + 1;
     saveStatistics();
 
@@ -145,37 +150,49 @@ function extractRelevantOutput(output, mysqlOption) {
     if (startIndex === -1) return output;
     let relevantOutput = output.substring(startIndex).trim();
 
-    if (mysqlOption === 'yes') {
-        const mysqlStartIndex = output.indexOf('FiveM MySQL-Data');
-        if (mysqlStartIndex !== -1) {
-            const mysqlEndIndex = output.indexOf('sleep 1', mysqlStartIndex);
-            const mysqlData = output.substring(mysqlStartIndex, mysqlEndIndex).trim();
-            relevantOutput += `\n\n${mysqlData}`;
-        }
+    const mysqlStartIndex = output.indexOf('FiveM MySQL-Data');
+    if (mysqlStartIndex !== -1) {
+        const mysqlEndIndex = output.indexOf('sleep 1', mysqlStartIndex);
+        const mysqlData = output.substring(mysqlStartIndex, mysqlEndIndex).trim();
+        relevantOutput += `\n\n${mysqlData}`;
     }
 
     return relevantOutput;
 }
 
 async function generateScreenshot(output) {
-    const browser = await puppeteer.launch();
-    const page = await browser.newPage();
-    const htmlContent = `
-        <html>
-        <body style="background: #141313; color: white; font-family: monospace; padding: 20px;">
-            <h1 style="text-align: center;">Server Installation Output</h1>
-            <pre>${output || "No output"}</pre>
-            <footer style="margin-top: 20px; text-align: center; font-size: 14px;">
-                Made by Lucentix & CuzImStupi4 with ❤️
-            </footer>
-        </body>
-        </html>
-    `;
-    await page.setContent(htmlContent);
-    const screenshotPath = path.join(os.tmpdir(), `screenshot-${Date.now()}.png`);
-    await page.screenshot({ path: screenshotPath });
-    await browser.close();
-    return screenshotPath;
+    let browser = null;
+    try {
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        await page.setContent(`
+            <html>
+                <body style="background: #141313; color: white; font-family: monospace; padding: 20px;">
+                    <h1 style="text-align: center;">Server Installation Output</h1>
+                    <pre>${output || "No output"}</pre>
+                    <footer style="margin-top: 20px; text-align: center; font-size: 14px;">
+                        Made by Lucentix & CuzImStupi4 with ❤️
+                    </footer>
+                </body>
+            </html>
+        `);
+
+        const screenshotPath = path.join(os.tmpdir(), `output-${Date.now()}.png`);
+        await page.screenshot({ path: screenshotPath });
+        await page.close();
+        return screenshotPath;
+    } catch (error) {
+        console.error('Screenshot generation failed:', error);
+        return null;
+    } finally {
+        if (browser) {
+            try {
+                await browser.close();
+            } catch (closeError) {
+                console.error('Failed to close browser:', closeError);
+            }
+        }
+    }
 }
 
 async function sendDM(user, content, embed, files) {
