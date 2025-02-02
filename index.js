@@ -488,7 +488,7 @@ client.on('interactionCreate', async interaction => {
                         collector.on('end', async collected => {
                             if (!collected.size) {
                                 console.log('No response from user for MySQL option');
-                                await interaction.editReply({ content: `${lang.noResponse} (ID: **__${customId}__**)`, components: [], flags: 64 });
+                                // await interaction.editReply({ content: `${lang.noResponse} (ID: **__${customId}__**)`, components: [], flags: 64 });
                                 setWaitingStatus();
                             }
                         });
