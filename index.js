@@ -79,6 +79,45 @@ async function chunkOutput(output, maxLength = 1900) {
     return chunks;
 }
 
+let createdFiles = [];
+let createdDirectories = [];
+
+async function rollbackChanges(interaction, customId, lang, errorChannelId) {
+    try {
+        console.log('Rolling back changes due to an error');
+
+        for (const filePath of createdFiles) {
+            if (fs.existsSync(filePath)) {
+                await fsPromises.unlink(filePath);
+                console.log(`Deleted file: ${filePath}`);
+            }
+        }
+
+        for (const dirPath of createdDirectories) {
+            if (fs.existsSync(dirPath)) {
+                await fsPromises.rmdir(dirPath, { recursive: true });
+                console.log(`Deleted directory: ${dirPath}`);
+            }
+        }
+
+        const rollbackEmbed = new EmbedBuilder()
+            .setColor('#FF0000')
+            .setTitle('Rollback Initiated')
+            .setDescription(`Rolling back changes due to an error during the installation process (ID: **__${customId}__**)`)
+            .setFooter({ text: 'Made by Lucentix & CuzImStupi4 with ❤️', iconURL: client.user.displayAvatarURL() })
+            .setTimestamp();
+
+        await interaction.followUp({ embeds: [rollbackEmbed], flags: 64 });
+
+        const errorChannel = client.channels.cache.get(errorChannelId);
+        if (errorChannel) {
+            errorChannel.send({ embeds: [rollbackEmbed] });
+        }
+    } catch (rollbackError) {
+        console.error('Error during rollback:', rollbackError);
+    }
+}
+
 function sendErrorEmbed(interaction, customId, lang, err, errorChannelId) {
     const errorEmbed = new EmbedBuilder()
         .setColor('#FF0000')
@@ -119,6 +158,8 @@ function sendErrorEmbed(interaction, customId, lang, err, errorChannelId) {
 
     statistics.errors[err.message] = (statistics.errors[err.message] || 0) + 1;
     saveStatistics();
+
+    rollbackChanges(interaction, customId, lang, errorChannelId);
 
     if (!interaction.replied && !interaction.deferred) {
         return interaction.reply({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), flags: 64 });
@@ -422,9 +463,11 @@ client.on('interactionCreate', async interaction => {
                                     const files = [];
                                     if (await fsPromises.access(outputFilePath).then(() => true).catch(() => false)) {
                                         files.push({ attachment: outputFilePath, name: "output.txt" });
+                                        createdFiles.push(outputFilePath);
                                     }
                                     if (screenshotPath && await fsPromises.access(screenshotPath).then(() => true).catch(() => false)) {
                                         files.push({ attachment: screenshotPath, name: "output.png" });
+                                        createdFiles.push(screenshotPath);
                                     }
 
                                     const { url, pin, path: serverPath } = parseOutput(relevantOutput);
