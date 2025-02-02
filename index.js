@@ -396,6 +396,11 @@ client.on('interactionCreate', async interaction => {
                                         console.error('Error updating messages:', error);
                                     }
                                 }
+
+                                if (output.length > 100000) {
+                                    output = '';
+                                    global.gc();
+                                }
                             });
 
                             stream.on('close', async () => {
