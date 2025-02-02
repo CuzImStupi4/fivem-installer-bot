@@ -1,5 +1,5 @@
 require("dotenv").config();
-require('v8').setFlagsFromString('--max-old-space-size=20096');
+require('v8').setFlagsFromString('--max-old-space-size=26096');
 const { Routes } = require('discord-api-types/v10');
 const { Client, GatewayIntentBits, SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ActivityType } = require('discord.js');
 const { Client: SSHClient } = require('ssh2');
@@ -356,11 +356,11 @@ client.on('interactionCreate', async interaction => {
 
         console.log(`IP: ${ip}, Port: ${port}, User: ${user}`);
 
-        const ipOrDomainRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^(([a-zA-Z0-9](-*[a-zA-Z0-9])*)\.)+[a-zA-Z]{2,}$/;
+        const ipRegex = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
         const portRegex = /^([0-9]{1,5})$/;
 
-        if (!ipOrDomainRegex.test(ip)) {
-            console.log('Invalid IP address or domain');
+        if (!ipRegex.test(ip)) {
+            console.log('Invalid IP address');
             return interaction.editReply({ content: lang.invalidIp, flags: 64 });
         }
 
