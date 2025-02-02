@@ -135,8 +135,10 @@ function parseOutput(output) {
 }
 
 function cleanOutput(output) {
-    return output.replace(/\x1B\[([0-9]{1,2}(;[0-9]{1,2})?)?[mGK]/g, '');
+    return output.replace(/\x1B\[[0-9;]*m/g, '').replace(/\x1B\].*?\x07/g, '').replace(/[^\x00-\x7F]/g, '');
 }
+
+
 
 function extractRelevantOutput(output, mysqlOption) {
     const startIndex = output.indexOf('TxAdmin was started successfully');
