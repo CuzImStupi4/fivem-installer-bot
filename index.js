@@ -160,14 +160,6 @@ function sendErrorEmbed(interaction, customId, lang, err, errorChannelId) {
     saveStatistics();
 
     rollbackChanges(interaction, customId, lang, errorChannelId);
-
-    if (!interaction.replied && !interaction.deferred) {
-        return interaction.reply({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), flags: 64 });
-    } else if (interaction.deferred) {
-        return interaction.editReply({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), flags: 64 });
-    } else {
-        return interaction.followUp({ content: truncateString(`SSH Error: ${err.message} (ID: **__${customId}__**)`), flags: 64 });
-    }
 }
 
 function truncateString(str, length = 1000) {
@@ -251,7 +243,6 @@ async function sendDM(user, content, embed, files) {
             embeds: [embed],
             files: files
         });
-        console.log('Sent DM to user');
     } catch (dmError) {
         console.error("Failed to send DM:", dmError);
     }
@@ -354,7 +345,6 @@ async function handleInstallCommand(interaction, lang) {
     }
 
     const customId = crypto.randomBytes(3).toString('hex').slice(0, 5);
-    console.log(`Generated custom ID: ${customId}`);
 
     const ssh = new SSHClient();
     let output = '';
@@ -363,7 +353,6 @@ async function handleInstallCommand(interaction, lang) {
     client.user.setActivity(`Installing for ${interaction.user.tag}...`, { type: ActivityType.Playing });
 
     ssh.on('ready', async () => {
-        console.log('SSH connection ready');
         await promptForMySQLOption(interaction, lang, ssh, customId, output, lastMessage, ip, port, user);
     });
 
@@ -374,7 +363,6 @@ async function handleInstallCommand(interaction, lang) {
     });
 
     ssh.connect({ host: ip, port: parseInt(port), username: user, password: password });
-    console.log('SSH connection initiated');
 }
 
 async function promptForMySQLOption(interaction, lang, ssh, customId, output, lastMessage, ip, port, user) {
@@ -392,7 +380,6 @@ async function promptForMySQLOption(interaction, lang, ssh, customId, output, la
 
     try {
         await interaction.editReply({ content: lang.installPrompt, components: [mysqlRow], flags: 64 });
-        console.log('Prompted user for MySQL option');
 
         const filter = i => i.user.id === interaction.user.id;
         const collector = interaction.channel.createMessageComponentCollector({ filter, time: 30000 });
@@ -400,7 +387,6 @@ async function promptForMySQLOption(interaction, lang, ssh, customId, output, la
         collector.on('collect', async i => {
             const mysqlOption = i.customId === 'mysql_yes' ? 'yes' : 'no';
             await i.update({ content: `${lang.mysqlSelected} ${mysqlOption}`, components: [], flags: 64 });
-            console.log(`User selected MySQL option: ${mysqlOption}`);
 
             const command = mysqlOption === "yes"
                 ? "bash <(curl -s https://raw.githubusercontent.com/Twe3x/fivem-installer/main/setup.sh) --non-interactive --kill-port -c --delete-dir -p --security  --generate_password --db_user fivem"
@@ -436,7 +422,6 @@ async function executeSSHCommand(interaction, lang, ssh, customId, command, outp
             stream.on('data', async data => {
                 const newOutput = data.toString();
                 output += newOutput;
-                console.log(`Received SSH output: ${newOutput}`);
 
                 const cleanedOutput = cleanOutput(output);
                 const chunks = await chunkOutput(cleanedOutput);
@@ -485,9 +470,7 @@ async function handleSSHStreamClose(interaction, lang, customId, output, mysqlOp
         const writeStream = fs.createWriteStream(outputFilePath);
         writeStream.write(relevantOutput);
         writeStream.end();
-        console.log(`Saved output to file: ${outputFilePath}`);
         const screenshotPath = await generateScreenshot(relevantOutput);
-        console.log(`Generated screenshot: ${screenshotPath}`);
 
         const files = [];
         if (await fsPromises.access(outputFilePath).then(() => true).catch(() => false)) {
@@ -500,7 +483,6 @@ async function handleSSHStreamClose(interaction, lang, customId, output, mysqlOp
         }
 
         const { url, pin, path: serverPath } = parseOutput(relevantOutput);
-        console.log(`Parsed output - URL: ${url}, PIN: ${pin}, Path: ${serverPath}`);
 
         const successEmbed = new EmbedBuilder()
             .setColor('#00FF00')
@@ -558,13 +540,11 @@ async function handleSSHStreamClose(interaction, lang, customId, output, mysqlOp
         const announcementChannel = client.channels.cache.get(announcementChannelId);
         if (announcementChannel) {
             announcementChannel.send({ embeds: [publicEmbed] });
-            console.log('Sent announcement to channel');
         }
 
         const successChannel = client.channels.cache.get(successChannelId);
         if (successChannel) {
             successChannel.send({ embeds: [successEmbed] });
-            console.log('Sent success message to channel');
         }
 
         statistics.totalInstallations += 1;
@@ -587,8 +567,6 @@ async function handleSSHStreamClose(interaction, lang, customId, output, mysqlOp
 client.on('interactionCreate', async interaction => {
     if (!interaction.isCommand()) return;
 
-    console.log(`Received command: ${interaction.commandName}`);
-
     if (interaction.commandName === "install") {
         const language = interaction.options.getString("language");
         const lang = languages[language] || languages.en;
@@ -599,7 +577,6 @@ client.on('interactionCreate', async interaction => {
         }
 
         await interaction.deferReply({ flags: 64 });
-        console.log('Deferred reply for install command');
 
         await handleInstallCommand(interaction, lang);
     } else if (interaction.commandName === "stats") {
@@ -617,7 +594,6 @@ client.on('interactionCreate', async interaction => {
                 .setTimestamp();
 
             await interaction.reply({ embeds: [statsEmbed], flags: 64 });
-            console.log('Sent statistics embed');
         } catch (error) {
             console.error('Error handling stats command:', error);
             await interaction.reply({ content: 'An error occurred while fetching statistics.', flags: 64 });
@@ -643,7 +619,6 @@ client.on('interactionCreate', async interaction => {
                 embeds: [helpEmbed],
                 flags: 64
             });
-            console.log('Sent help embed');
         } catch (error) {
             console.error('Error handling help command:', error);
             await interaction.reply({ content: 'An error occurred while fetching help information.', flags: 64 });
